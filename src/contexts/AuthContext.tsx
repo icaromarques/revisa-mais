@@ -4,7 +4,8 @@ import {
   onAuthStateChanged, 
   signInWithPopup, 
   GoogleAuthProvider, 
-  signOut
+  signOut,
+  signInAnonymously as firebaseSignInAnonymously
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -13,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -38,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await setDoc(userRef, {
         user_id: u.uid,
         nome: nome,
-        email: u.email,
+        email: u.email || 'demo@revisa.plus',
         foto_url: u.photoURL || '',
         plano: 'gratis',
         created_at: serverTimestamp(),
@@ -62,6 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await createUserDoc(result.user, result.user.displayName || 'Usuário');
   };
 
+  const signInAnonymously = async () => {
+    const result = await firebaseSignInAnonymously(auth);
+    await createUserDoc(result.user, 'Estudante Demo');
+  };
+
   const logout = async () => {
     await signOut(auth);
   };
@@ -71,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, 
       loading, 
       signInWithGoogle, 
+      signInAnonymously,
       logout 
     }}>
       {!loading && children}
