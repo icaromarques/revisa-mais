@@ -1,0 +1,430 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "foto_url": { "type": "string" },
+        "plano": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "email", "created_at"]
+    },
+    "Materia": {
+      "title": "Materia",
+      "description": "Subject or course",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "nome": { "type": "string" },
+        "descricao": { "type": "string" },
+        "professor": { "type": "string" },
+        "cor": { "type": "string" },
+        "prioridade": { "type": "string" },
+        "progresso": { "type": "number" },
+        "faltas": { "type": "number" },
+        "periodo_inicio": { "type": "string" },
+        "periodo_fim": { "type": "string" },
+        "tipo_periodo": { "type": "string" },
+        "limite_faltas_percentual": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "nome", "cor", "created_at"]
+    },
+    "Topico": {
+      "title": "Topico",
+      "description": "Topic within a subject",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "nome": { "type": "string" },
+        "descricao": { "type": "string" },
+        "status_dominio": { "type": "string", "enum": ["nao_vi_ainda", "estudando", "revisao_inicial", "revisao_intermediaria", "dominado"] },
+        "dificuldade": { "type": "number" },
+        "prioridade": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "materia_id", "nome", "status_dominio", "created_at"]
+    },
+    "SessaoEstudo": {
+      "title": "SessaoEstudo",
+      "description": "Study session record",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "topico_id": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["pomodoro", "cronometro", "manual"] },
+        "tempo_estudado_minutos": { "type": "number" },
+        "dificuldade": { "type": "number" },
+        "total_questoes": { "type": "number" },
+        "acertos": { "type": "number" },
+        "notas": { "type": "string" },
+        "data_hora_inicio": { "type": "string", "format": "date-time" },
+        "data_hora_fim": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "materia_id", "tipo", "tempo_estudado_minutos", "created_at"]
+    },
+    "Revisao": {
+      "title": "Revisao",
+      "description": "Scheduled review",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "topico_id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "tipo_intervalo": { "type": "string", "enum": ["d3", "d7", "d15", "d30", "d90"] },
+        "data_prevista": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pendente", "concluida", "adiada", "cancelada"] },
+        "origem": { "type": "string", "enum": ["automatica", "manual", "desempenho"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "materia_id", "topico_id", "data_prevista", "status", "origem", "created_at"]
+    },
+    "Resumo": {
+      "title": "Resumo",
+      "description": "Study summary",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "topico_id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "conteudo": { "type": "string" },
+        "origem": { "type": "string", "enum": ["manual", "ia"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "materia_id", "titulo", "conteudo", "origem", "created_at"]
+    },
+    "Deck": {
+      "title": "Deck",
+      "description": "Flashcard deck",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "topico_id": { "type": "string" },
+        "nome": { "type": "string" },
+        "cor": { "type": "string" },
+        "origem": { "type": "string", "enum": ["manual", "ia"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "nome", "cor", "origem", "created_at"]
+    },
+    "Flashcard": {
+      "title": "Flashcard",
+      "description": "Individual flashcard",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "deck_id": { "type": "string" },
+        "frente": { "type": "string" },
+        "verso": { "type": "string" },
+        "dificuldade": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "deck_id", "frente", "verso", "created_at"]
+    },
+    "BancoQuestao": {
+      "title": "BancoQuestao",
+      "description": "Question bank item",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "topico_id": { "type": "string" },
+        "enunciado": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["multipla_escolha", "subjetiva", "variada"] },
+        "dificuldade": { "type": "number" },
+        "origem": { "type": "string", "enum": ["manual", "ia"] },
+        "banca_estilo": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "enunciado", "tipo", "dificuldade", "origem", "created_at"]
+    },
+    "Alternativa": {
+      "title": "Alternativa",
+      "description": "Question alternative",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "questao_id": { "type": "string" },
+        "texto": { "type": "string" },
+        "correta": { "type": "boolean" }
+      },
+      "required": ["user_id", "questao_id", "texto", "correta"]
+    },
+    "TentativaQuestao": {
+      "title": "TentativaQuestao",
+      "description": "Question attempt record",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "questao_id": { "type": "string" },
+        "resposta_dada": { "type": "string" },
+        "acertou": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "questao_id", "acertou", "created_at"]
+    },
+    "EventoCalendario": {
+      "title": "EventoCalendario",
+      "description": "Calendar event",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["prova", "trabalho", "apresentacao", "sessao_estudo", "lembrete", "tarefa"] },
+        "titulo": { "type": "string" },
+        "descricao": { "type": "string" },
+        "data_inicio": { "type": "string", "format": "date-time" },
+        "data_fim": { "type": "string", "format": "date-time" },
+        "local": { "type": "string" },
+        "google_calendar_event_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "tipo", "titulo", "data_inicio", "created_at"]
+    },
+    "Notificacao": {
+      "title": "Notificacao",
+      "description": "User notification",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "tipo": { "type": "string" },
+        "titulo": { "type": "string" },
+        "mensagem": { "type": "string" },
+        "lida": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "tipo", "titulo", "mensagem", "lida", "created_at"]
+    },
+    "PreferenciasUsuario": {
+      "title": "PreferenciasUsuario",
+      "description": "User preferences",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "scheduling": { "type": "object" },
+        "durations": { "type": "object" },
+        "reviews": { "type": "object" },
+        "recovery": { "type": "object" },
+        "sessions": { "type": "object" },
+        "notifications": { "type": "object" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id"]
+    },
+    "Aula": {
+      "title": "Aula",
+      "description": "Class record",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "data": { "type": "string" },
+        "professor": { "type": "string" },
+        "conteudo": { "type": "string" },
+        "observacoes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pendente", "assistida", "revisar"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "materia_id", "titulo", "status", "created_at"]
+    },
+    "Configuracoes": {
+      "title": "Configuracoes",
+      "description": "User settings",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "meta_semanal_horas": { "type": "number" },
+        "preferencia_revisao_automatica": { "type": "boolean" },
+        "sensibilidade_revisao": { "type": "number" },
+        "google_calendar_conectado": { "type": "boolean" },
+        "pomodoro_foco_min": { "type": "number" },
+        "pomodoro_curta_min": { "type": "number" },
+        "pomodoro_longa_min": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "created_at"]
+    },
+    "GradeFaculdade": {
+      "title": "GradeFaculdade",
+      "description": "Faculty class schedule",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "professor": { "type": "string" },
+        "local": { "type": "string" },
+        "dia_semana": { "type": "number" },
+        "hora_inicio": { "type": "string" },
+        "hora_fim": { "type": "string" },
+        "recorrente": { "type": "boolean" },
+        "data_inicio_vigencia": { "type": "string", "format": "date-time" },
+        "data_fim_vigencia": { "type": "string", "format": "date-time" },
+        "periodo_inicio": { "type": "string" },
+        "periodo_fim": { "type": "string" },
+        "tipo_periodo": { "type": "string" },
+        "limite_faltas_percentual": { "type": "number" },
+        "observacoes": { "type": "string" },
+        "cor": { "type": "string" },
+        "ativo": { "type": "boolean" },
+        "sincronizado_google": { "type": "boolean" },
+        "google_event_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "titulo", "dia_semana", "hora_inicio", "hora_fim", "ativo", "created_at"]
+    },
+    "BloqueioAgenda": {
+      "title": "BloqueioAgenda",
+      "description": "Personal unavailable blocks",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "categoria": { "type": "string" },
+        "dia_semana": { "type": "number" },
+        "data_especifica": { "type": "string", "format": "date-time" },
+        "hora_inicio": { "type": "string" },
+        "hora_fim": { "type": "string" },
+        "recorrente": { "type": "boolean" },
+        "data_inicio_vigencia": { "type": "string", "format": "date-time" },
+        "data_fim_vigencia": { "type": "string", "format": "date-time" },
+        "observacoes": { "type": "string" },
+        "cor": { "type": "string" },
+        "ativo": { "type": "boolean" },
+        "sincronizado_google": { "type": "boolean" },
+        "google_event_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "titulo", "categoria", "hora_inicio", "hora_fim", "recorrente", "ativo", "created_at"]
+    },
+    "OcorrenciaGrade": {
+      "title": "OcorrenciaGrade",
+      "description": "Occurrence of a class from the faculty schedule",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "grade_id": { "type": "string" },
+        "materia_id": { "type": "string" },
+        "data": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["pendente_confirmacao", "assistida", "falta", "cancelada", "resolvida_por_aula_existente", "conteudo_recuperado"] },
+        "aula_id": { "type": "string" },
+        "quantidade_ocorrencias": { "type": "number" },
+        "origem": { "type": "string", "enum": ["automatica", "manual", "grade"] },
+        "tipo_falta": { "type": "string", "enum": ["comum", "com_atestado", "justificada"] },
+        "topico_id": { "type": "string" },
+        "observacoes": { "type": "string" },
+        "status_reposicao": { "type": "string", "enum": ["pendente", "recuperado", "parcialmente"] },
+        "reposicao_aula_id": { "type": "string" },
+        "reposicao_sessao_id": { "type": "string" },
+        "reposicao_observacao": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "materia_id", "data", "status", "created_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "/materias/{materiaId}": {
+      "schema": { "$ref": "#/entities/Materia" },
+      "description": "Subjects"
+    },
+    "/topicos/{topicoId}": {
+      "schema": { "$ref": "#/entities/Topico" },
+      "description": "Topics"
+    },
+    "/sessoes/{sessaoId}": {
+      "schema": { "$ref": "#/entities/SessaoEstudo" },
+      "description": "Study sessions"
+    },
+    "/revisoes/{revisaoId}": {
+      "schema": { "$ref": "#/entities/Revisao" },
+      "description": "Scheduled reviews"
+    },
+    "/resumos/{resumoId}": {
+      "schema": { "$ref": "#/entities/Resumo" },
+      "description": "Summaries"
+    },
+    "/decks/{deckId}": {
+      "schema": { "$ref": "#/entities/Deck" },
+      "description": "Flashcard decks"
+    },
+    "/flashcards/{flashcardId}": {
+      "schema": { "$ref": "#/entities/Flashcard" },
+      "description": "Flashcards"
+    },
+    "/questoes/{questaoId}": {
+      "schema": { "$ref": "#/entities/BancoQuestao" },
+      "description": "Questions"
+    },
+    "/alternativas/{alternativaId}": {
+      "schema": { "$ref": "#/entities/Alternativa" },
+      "description": "Question alternatives"
+    },
+    "/tentativas/{tentativaId}": {
+      "schema": { "$ref": "#/entities/TentativaQuestao" },
+      "description": "Question attempts"
+    },
+    "/eventos_academicos/{eventoId}": {
+      "schema": { "$ref": "#/entities/EventoCalendario" },
+      "description": "Calendar events"
+    },
+    "/aulas/{aulaId}": {
+      "schema": { "$ref": "#/entities/Aula" },
+      "description": "Class records"
+    },
+    "/notificacoes/{notificacaoId}": {
+      "schema": { "$ref": "#/entities/Notificacao" },
+      "description": "Notifications"
+    },
+    "/configuracoes/{configId}": {
+      "schema": { "$ref": "#/entities/Configuracoes" },
+      "description": "User settings"
+    },
+    "/preferencias_usuario/{userId}": {
+      "schema": { "$ref": "#/entities/PreferenciasUsuario" },
+      "description": "Intelligent User Preferences"
+    },
+    "/grade_faculdade/{gradeId}": {
+      "schema": { "$ref": "#/entities/GradeFaculdade" },
+      "description": "Faculty schedule"
+    },
+    "/bloqueios_agenda/{bloqueioId}": {
+      "schema": { "$ref": "#/entities/BloqueioAgenda" },
+      "description": "Personal blocks"
+    },
+    "/ocorrencias_grade/{ocorrenciaId}": {
+      "schema": { "$ref": "#/entities/OcorrenciaGrade" },
+      "description": "Class occurrences"
+    }
+  }
+}

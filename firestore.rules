@@ -1,0 +1,192 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && (resource == null || request.auth.uid == resource.data.user_id);
+    }
+
+    function isCreatingOwnDoc() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidString(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && hasRequiredFields(['nome', 'email', 'created_at']);
+      allow update: if isOwner(userId);
+      allow delete: if false;
+
+      // User sub-collections
+      match /configuracoes/{configId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    match /materias/{materiaId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'nome', 'cor', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /notas_materia/{notaId} {
+      allow read: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid 
+        && hasRequiredFields(['user_id', 'materia_id', 'nome', 'nota_maxima']);
+      allow update, delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    match /topicos/{topicoId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'materia_id', 'nome', 'status_dominio', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /sessoes/{sessaoId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && 
+        hasRequiredFields(['user_id', 'tipo', 'tempo_estudado_segundos', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /revisoes/{revisaoId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'nome', 'status', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /resumos/{resumoId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'titulo', 'conteudo', 'origem', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /decks/{deckId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'nome', 'origem', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /cadernos/{cadernoId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'nome', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /flashcards/{flashcardId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'deck_id', 'frente', 'verso', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /questoes/{questaoId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'enunciado', 'tipo', 'dificuldade', 'origem', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /alternativas/{alternativaId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'questao_id', 'texto', 'correta']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /tentativas/{tentativaId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'questao_id', 'acertou', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    // Collection: Eventos Acadêmicos
+    match /eventos_academicos/{eventoId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'titulo', 'data_inicio', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /aulas/{aulaId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'materia_id', 'titulo', 'status', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /materiais/{materialId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'materia_id', 'titulo', 'tipo', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /notificacoes/{notificacaoId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'tipo', 'titulo', 'mensagem', 'lida', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /preferencias_usuario/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /grade_faculdade/{gradeId} {
+      allow read: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid 
+        && hasRequiredFields(['user_id', 'titulo', 'dias_semana', 'hora_inicio', 'hora_fim', 'ativo', 'created_at']);
+      allow update, delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    match /bloqueios_agenda/{bloqueioId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'titulo', 'categoria', 'hora_inicio', 'hora_fim', 'recorrente', 'ativo', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+
+    match /faltas_materias/{faltaId} {
+      allow read, write: if isAuthenticated() && (resource == null || resource.data.user_id == request.auth.uid || request.resource.data.user_id == request.auth.uid);
+    }
+
+    match /ocorrencias_grade/{ocorrenciaId} {
+      allow read: if isDocOwner();
+      allow create: if isCreatingOwnDoc() && hasRequiredFields(['user_id', 'materia_id', 'data', 'status', 'created_at']);
+      allow update: if isDocOwner() && isCreatingOwnDoc();
+      allow delete: if isDocOwner();
+    }
+  }
+}
