@@ -1,5 +1,7 @@
 <div align="center">  
+  
   # 📚 Revisa+
+  
   ### O seu ecossistema inteligente de planejamento acadêmico e revisão ativa.
   
   [![React Version](https://img.shields.io/badge/React-19.0-blue.svg?logo=react)](https://react.dev)
