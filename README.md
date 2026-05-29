@@ -1,6 +1,4 @@
-<div align="center">
-  <img width="100%" alt="Revisa+ Banner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-  
+<div align="center">  
   # 📚 Revisa+
   ### O seu ecossistema inteligente de planejamento acadêmico e revisão ativa.
   
@@ -15,7 +13,7 @@
 
 ## ✨ O que é o Revisa+?
 
-O **Revisa+** é um aplicativo premium completo de gestão e otimização de estudos acadêmicos. Ele foi idealizado e construído inicialmente utilizando o **Google AI Studio** para criar uma interface do usuário moderna, fluida e reativa com recursos de ponta para ajudar estudantes a organizarem sua rotina, gerenciarem faltas e praticarem lembrança ativa (*Active Recall*).
+O **Revisa+** é um aplicativo premium completo de gestão e otimização de estudos acadêmicos. Ele foi idealizado e construído para criar uma interface do usuário moderna, fluida e reativa com recursos de ponta para ajudar estudantes a organizarem sua rotina, gerenciarem faltas e praticarem lembrança ativa (*Active Recall*).
 
 ---
 
