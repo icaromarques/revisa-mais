@@ -510,7 +510,11 @@ O `googleDriveService.ts` atualmente é apenas um mock. Com o backend, podemos a
 
 ---
 
-## 🚀 6. Próximo Passo Recomendado
+### 🚀 Fase 10: Estratégia de Deploy Gratuito (Zero Cost)
+- [ ] **Frontend (React/Vite)**: Deploy na Vercel (Plano Hobby gratuito), conectando ao repositório GitHub. Configurar variáveis de ambiente apontando para a API do Backend.
+- [ ] **Backend (Node.js/Express)**: Deploy no Render.com (Plano Free para Web Services). O serviço entra em sleep após inatividade, mas é ideal para validação e testes gratuitos.
+- [ ] **Banco de Dados (PostgreSQL)**: Utilizar o Supabase ou Neon Tech (ambos possuem planos gratuitos robustos). Obter a string de conexão e adicionar ao `.env` do Render.
+- [ ] **Cron Jobs**: Utilizar a funcionalidade de cron do Render (se disponível no free tier) ou serviços externos como cron-job.org chamando um endpoint seguro do backend para acionar as sincronizações automáticas em background (Calendar/Revisões).
 
 1. Configure uma instância do PostgreSQL (local ou nuvem).
 2. Inicialize o projeto Node.js TypeScript na pasta `backend/`.
