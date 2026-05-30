@@ -19,7 +19,7 @@ export function ModalNovaAula({
   materiaisIniciais = [], 
   defaultTopicoId = '',
   initialData
-}: ModalNovaAulaProps) {
+}: any) {
   const { user } = useAuth();
   const { preferences } = usePreferences();
   const [loading, setLoading] = useState(false);

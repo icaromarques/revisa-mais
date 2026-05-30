@@ -54,7 +54,7 @@ export function Planner() {
     });
 
     // Fetch Eventos
-    const unsubscribe = calendarService.subscribeToUserEvents(user.id, (events) => {
+    calendarService.fetchUserEvents(user.id).then((events: any[]) => {
       const validEvents = events.filter(e => e.data_inicio && !isNaN(new Date(e.data_inicio).getTime()));
       const sorted = validEvents.sort((a,b) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime());
       setBlocos(sorted);
@@ -62,10 +62,9 @@ export function Planner() {
     });
 
     // Fetch Grade + Bloqueios
-    availabilityService.getGradeFaculdade(user.id).then(res => setGrade(res.filter(g => g.ativo)));
-    availabilityService.getBloqueios(user.id).then(res => setBloqueios(res.filter(b => b.ativo)));
+    availabilityService.getGradeFaculdade(user.id).then(res => setGrade(res.filter((g: any) => g.ativo)));
+    availabilityService.getBloqueios(user.id).then(res => setBloqueios(res.filter((b: any) => b.ativo)));
 
-    return () => unsubscribe();
   }, [user]);
 
   const handleGenerateCronograma = async () => {

@@ -1,4 +1,4 @@
-import { apiClient } from '../lib/api';
+import { apiClient } from '@/lib/api';
 
 export const aiApiService = {
   async generateSummary(text: string, context?: string) {

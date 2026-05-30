@@ -428,6 +428,7 @@ export function SessionModal() {
       const minutos = totalSeconds / 60;
 
       const isEdit = modalData?.modo === 'edit' && !!modalData.id;
+      let sessaoId: string | null = isEdit ? modalData.id : null;
 
       let topicoId = selectedTopico;
       let finalMaterialId = outputDestino === 'material_existente' ? materialVinculadoId : null;
@@ -592,7 +593,7 @@ export function SessionModal() {
         finalSessaoId = data.id;
       }
       
-      const sessaoId = finalSessaoId;
+      sessaoId = finalSessaoId;
 
       // ... then Handle Linked entities consequences (Update Revision / Faltas)
       if (tipoSessao === 'revisao' && revisaoVinculadaId) {

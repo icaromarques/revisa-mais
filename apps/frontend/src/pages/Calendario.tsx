@@ -121,7 +121,7 @@ export function Calendario() {
 
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = calendarService.subscribeToUserEvents(user.id, async (data) => {
+    calendarService.fetchUserEvents(user.id).then(async (data: any[]) => {
       
       const validData = data.filter(e => e.data_inicio && !isNaN(new Date(e.data_inicio).getTime()));
       
@@ -242,7 +242,6 @@ export function Calendario() {
       
       setEvents([...validData, ...synthesizedEvents]);
     });
-    return () => unsubscribe();
   }, [user, currentDate]);
 
   const goNext = () => {

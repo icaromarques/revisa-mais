@@ -267,8 +267,8 @@ export function MateriaDetalhe() {
        handleFirestoreError(error, OperationType.LIST, 'grade_faculdade');
     });
 
-    const unsubEvents = calendarService.subscribeToUserEvents(user.id, (data) => {
-      setEvents(data.filter(e => e.materia_id === id && e.data_inicio && !isNaN(parseValidDate(e.data_inicio).getTime())));
+    calendarService.fetchUserEvents(user.id).then((data: any[]) => {
+      setEvents(data.filter((e: any) => e.materia_id === id && e.data_inicio && !isNaN(parseValidDate(e.data_inicio).getTime())));
       setLoading(false);
     });
 
@@ -282,7 +282,6 @@ export function MateriaDetalhe() {
       unsubMateriais();
       unsubOcorrencias();
       unsubGrade();
-      unsubEvents();
     };
   }, [user, id]);
 
