@@ -3,8 +3,11 @@ import { X, Clock, Calendar, Book, FileText, Target, BarChart2, Edit2, Trash2, L
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn, formatDuration } from '@/lib/utils';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { doc, getDoc } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SessionDetailModalProps {
@@ -260,7 +263,7 @@ export function SessionDetailModal({
                                 if(confirm(`ATENÇÃO: Deseja EXCLUIR este material permanentemente de todo o sistema?\n${linkedCount > 1 ? `Isso removerá o vínculo com OUTRAS ${linkedCount - 1} sessão(ões) além desta.` : ''}`)) {
                                    try {
                                      const { materialService } = await import('@/services/materialService');
-                                     await materialService.deleteMaterial(mat.id, user.uid);
+                                     await materialService.deleteMaterial(mat.id, user.id);
                                      setMateriaisVinculados(prev => prev.map(p => p.id === mat.id ? { ...p, _removed: true } : p));
                                    } catch(e) {}
                                 }

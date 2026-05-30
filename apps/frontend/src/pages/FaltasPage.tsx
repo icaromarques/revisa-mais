@@ -3,18 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { collection, query, where, onSnapshot, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { apiClient } from '@/lib/api';
 import { OcorrenciaGrade, StatusOcorrencia } from '@/types/availability';
 import { AlertCircle, CheckCircle2, History, Filter, BookOpen, Clock, Calendar, Check, Plus, Trash2, Edit2 } from 'lucide-react';
-import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { ModalFaltaManual } from '@/components/ModalFaltaManual';
 import { ModalRecuperarFalta } from '@/components/ModalRecuperarFalta';
 import { ModalExcluirFalta } from '@/components/ModalExcluirFalta';
 import { calcularResumoFaltas } from '@/utils/faltasCalculator';
-import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';
 
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -36,25 +33,30 @@ export function FaltasPage() {
   useEffect(() => {
     if (!user) return;
 
-    const qOc = query(
-      collection(db, 'ocorrencias_grade'),
-      where('user_id', '==', user.uid),
-      where('status', 'in', ['falta', 'conteudo_recuperado'])
-    );
+    let isMounted = true;
 
-    const unsubOc = onSnapshot(qOc, (snap) => {
-      setOcorrencias(snap.docs.map(d => ({ id: d.id, ...d.data() } as OcorrenciaGrade)));
-      setLoading(false);
-    });
-
-    const qMat = query(collection(db, 'materias'), where('user_id', '==', user.uid));
-    const unsubMat = onSnapshot(qMat, (snap) => {
-      setMaterias(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    const fetchData = async () => {
+      try {
+        const [{data: ocs}, {data: mats}] = await Promise.all([
+           apiClient.get('/ocorrencias'),
+           apiClient.get('/materias')
+        ]);
+        
+        if (isMounted) {
+           setOcorrencias(ocs.filter((o: any) => o.status === 'falta' || o.status === 'conteudo_recuperado'));
+           setMaterias(mats);
+           setLoading(false);
+        }
+      } catch (e) {
+        console.error("Erro ao carregar faltas", e);
+        if (isMounted) setLoading(false);
+      }
+    };
+    
+    fetchData();
 
     return () => {
-      unsubOc();
-      unsubMat();
+      isMounted = false;
     };
   }, [user]);
 

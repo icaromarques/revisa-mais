@@ -10,8 +10,11 @@ import { BloqueiosLista } from './components/BloqueiosLista';
 import { ModalNovoHorario } from './components/ModalNovoHorario';
 import { ModalNovoBloqueio } from './components/ModalNovoBloqueio';
 import { cn } from '@/lib/utils';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { collection, query, where, onSnapshot } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 
 export function GradePage() {
   const { user } = useAuth();
@@ -31,18 +34,18 @@ export function GradePage() {
   useEffect(() => {
     if (!user) return;
 
-    const qGrade = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.uid));
+    const qGrade = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.id));
     const unsubGrade = onSnapshot(qGrade, (snap) => {
       setGrade(snap.docs.map(d => ({ id: d.id, ...d.data() } as GradeFaculdade)));
       setLoading(false);
     });
 
-    const qBloqueios = query(collection(db, 'bloqueios_agenda'), where('user_id', '==', user.uid));
+    const qBloqueios = query(collection(db, 'bloqueios_agenda'), where('user_id', '==', user.id));
     const unsubBloqueios = onSnapshot(qBloqueios, (snap) => {
       setBloqueios(snap.docs.map(d => ({ id: d.id, ...d.data() } as BloqueioAgenda)));
     });
 
-    const qMaterias = query(collection(db, 'materias'), where('user_id', '==', user.uid));
+    const qMaterias = query(collection(db, 'materias'), where('user_id', '==', user.id));
     const unsubMaterias = onSnapshot(qMaterias, (snap) => {
       setMaterias(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });

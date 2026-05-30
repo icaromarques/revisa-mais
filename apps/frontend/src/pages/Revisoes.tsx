@@ -2,8 +2,11 @@ import { parseValidDate } from '@/lib/utils';
 import { Header } from '@/components/Header';
 import { History, Filter, Play, CheckCircle2, Edit2, Trash2, CalendarIcon, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { format, isToday, isPast,  } from 'date-fns';
@@ -29,7 +32,7 @@ export function Revisoes() {
     if (!user) return;
 
     // Fetch Materias
-    const qMaterias = query(collection(db, 'materias'), where('user_id', '==', user.uid));
+    const qMaterias = query(collection(db, 'materias'), where('user_id', '==', user.id));
     const unsubMaterias = onSnapshot(qMaterias, (snapshot) => {
       const map: Record<string, string> = {};
       snapshot.docs.forEach(docSnap => {
@@ -39,7 +42,7 @@ export function Revisoes() {
     });
 
     // Fetch Topicos
-    const qTopicos = query(collection(db, 'topicos'), where('user_id', '==', user.uid));
+    const qTopicos = query(collection(db, 'topicos'), where('user_id', '==', user.id));
     const unsubTopicos = onSnapshot(qTopicos, (snapshot) => {
       const map: Record<string, string> = {};
       snapshot.docs.forEach(docSnap => {
@@ -51,7 +54,7 @@ export function Revisoes() {
     // Fetch all Revisoes
     const qRevisoes = query(
       collection(db, 'revisoes'), 
-      where('user_id', '==', user.uid),
+      where('user_id', '==', user.id),
       orderBy('data_prevista', 'asc')
     );
     const unsubRevisoes = onSnapshot(qRevisoes, (snapshot) => {
@@ -90,7 +93,7 @@ export function Revisoes() {
     try {
       const savedData = {
          ...form,
-         user_id: user.uid,
+         user_id: user.id,
          data_prevista: form.data_prevista ? new Date(form.data_prevista).toISOString() : null,
       };
 
@@ -135,7 +138,7 @@ export function Revisoes() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await revisaoService.deleteRevisao(id, user.uid);
+          await revisaoService.deleteRevisao(id, user.id);
           toast.success("Revisão excluída");
         } catch (err) {
           console.error(err);

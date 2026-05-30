@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { collection, query, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { OcorrenciaGrade } from '@/types/availability';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
@@ -54,7 +57,7 @@ export function ModalFaltaManual({ isOpen, onClose, materiaIdProp, faltaToEdit }
   useEffect(() => {
     if (!isOpen || !user) return;
     const fetchMaterias = async () => {
-      const q = query(collection(db, 'materias'), where('user_id', '==', user.uid));
+      const q = query(collection(db, 'materias'), where('user_id', '==', user.id));
       const snap = await getDocs(q);
       setMaterias(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     };
@@ -103,10 +106,10 @@ export function ModalFaltaManual({ isOpen, onClose, materiaIdProp, faltaToEdit }
       return;
     }
     const fetchDeps = async () => {
-      const qTopico = query(collection(db, 'topicos'), where('user_id', '==', user.uid), where('materia_id', '==', form.materia_id));
-      const qGrade = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.uid), where('materia_id', '==', form.materia_id));
-      const qAulas = query(collection(db, 'aulas'), where('user_id', '==', user.uid), where('materia_id', '==', form.materia_id));
-      const qSessoes = query(collection(db, 'sessoes'), where('user_id', '==', user.uid), where('materia_id', '==', form.materia_id));
+      const qTopico = query(collection(db, 'topicos'), where('user_id', '==', user.id), where('materia_id', '==', form.materia_id));
+      const qGrade = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.id), where('materia_id', '==', form.materia_id));
+      const qAulas = query(collection(db, 'aulas'), where('user_id', '==', user.id), where('materia_id', '==', form.materia_id));
+      const qSessoes = query(collection(db, 'sessoes'), where('user_id', '==', user.id), where('materia_id', '==', form.materia_id));
       
       const [snapTopico, snapGrade, sAulas, sSessoes] = await Promise.all([getDocs(qTopico), getDocs(qGrade), getDocs(qAulas), getDocs(qSessoes)]);
       setTopicos(snapTopico.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -188,7 +191,7 @@ export function ModalFaltaManual({ isOpen, onClose, materiaIdProp, faltaToEdit }
       }
       
       const payload: Partial<OcorrenciaGrade> = {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: form.materia_id,
         data: form.data,
         status: 'falta',
@@ -229,7 +232,7 @@ export function ModalFaltaManual({ isOpen, onClose, materiaIdProp, faltaToEdit }
         // Check for duplicates
         const qDup = query(
           collection(db, 'ocorrencias_grade'), 
-          where('user_id', '==', user.uid),
+          where('user_id', '==', user.id),
           where('materia_id', '==', form.materia_id),
           where('data', '==', form.data),
           where('status', '==', 'falta')

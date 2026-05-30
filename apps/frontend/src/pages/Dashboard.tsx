@@ -27,9 +27,8 @@ import { ModalNovaAula } from '@/components/ModalNovaAula';
 import { gradeOccurrenceService } from '@/services/gradeOccurrenceService';
 import { toast } from '@/lib/toast';
 import { parseValidDate } from '@/lib/utils';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useNavigate } from 'react-router-dom';
+import { apiClient } from '@/lib/api';
 
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -83,13 +82,9 @@ export function Dashboard() {
     todayAgenda,
     criticalSubject,
     ocorrencias
-  } = useDashboardData(user?.uid, timeRange, customStart, customEnd);
+  } = useDashboardData(user?.id, timeRange, customStart, customEnd);
 
   const handleConfirmAssistida = async (oc: any) => {
-    // 1. Check if class exists (already done in generateDailyOccurrences but better safe)
-    // Actually our service already sets status to resolvida_por_aula_existente if it finds one during generation.
-    // Here we handle the ones that are still "pendente_confirmacao"
-    
     setPendingAulaMateriaId(oc.materia_id);
     setAulaInitialData({ 
       titulo: materiasMap[oc.materia_id]?.nome || 'Aula da Grade',
@@ -97,9 +92,13 @@ export function Dashboard() {
       ocorrencia_id: oc.id
     });
 
-    // Fetch topics for this materia to pass to modal
-    const snap = await getDocs(query(collection(db, 'topicos'), where('user_id', '==', user.uid), where('materia_id', '==', oc.materia_id)));
-    setMateriaTopicos(snap.docs.map(d => ({id: d.id, ...d.data()})));
+    try {
+      const { data } = await apiClient.get(`/topicos/materia/${oc.materia_id}`);
+      setMateriaTopicos(data);
+    } catch (e) {
+      console.error("Erro ao buscar tópicos", e);
+      setMateriaTopicos([]);
+    }
     
     setIsAulaModalOpen(true);
   };
@@ -123,7 +122,7 @@ export function Dashboard() {
   };
 
   const today = useMemo(() => new Date(), []);
-  const { freeSlots } = useSmartAvailability(user?.uid, today, 30);
+  const { freeSlots } = useSmartAvailability(user?.id, today, 30);
   const nextSlot = freeSlots.length > 0 ? freeSlots[0] : null;
 
   if (loading && Object.keys(materiasMap).length === 0) {

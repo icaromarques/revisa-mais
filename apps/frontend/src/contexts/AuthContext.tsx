@@ -1,17 +1,16 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { 
-  User, 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut,
-  signInAnonymously as firebaseSignInAnonymously
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { authApiService } from '@/services/api/auth';
+
+// O User agora vem do nosso próprio banco de dados (PostgreSQL via Backend)
+interface AppUser {
+  id: string;
+  nome: string;
+  email: string;
+  gcalConnected: boolean;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
@@ -21,56 +20,38 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Assim que a aplicação abre, checamos se temos uma sessão ativa no Backend
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
+    const checkSession = async () => {
+      try {
+        const response = await authApiService.getSession();
+        setUser(response.user);
+      } catch (err) {
+        console.log("No active session found");
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return unsubscribe;
+    checkSession();
   }, []);
 
-  const createUserDoc = async (u: User, nome: string) => {
-    const userRef = doc(db, 'users', u.uid);
-    const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) {
-      await setDoc(userRef, {
-        user_id: u.uid,
-        nome: nome,
-        email: u.email || 'demo@revisa.plus',
-        foto_url: u.photoURL || '',
-        plano: 'gratis',
-        created_at: serverTimestamp(),
-        updated_at: serverTimestamp()
-      }, { merge: true });
-
-      // Opcional: Criar preferências iniciais
-      const prefsRef = doc(db, 'users', u.uid, 'configuracoes', 'preferencias');
-      await setDoc(prefsRef, {
-        tema: 'dark',
-        notificacoes: true,
-        idioma: 'pt-BR',
-        updated_at: serverTimestamp()
-      }, { merge: true });
-    }
-  };
-
   const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    await createUserDoc(result.user, result.user.displayName || 'Usuário');
+    // A API vai redirecionar a janela para o Google
+    await authApiService.loginWithGoogle();
   };
 
   const signInAnonymously = async () => {
-    const result = await firebaseSignInAnonymously(auth);
-    await createUserDoc(result.user, 'Estudante Demo');
+    console.warn("Modo Anônimo não suportado na API ainda.");
   };
 
   const logout = async () => {
-    await signOut(auth);
+    await authApiService.logout();
+    setUser(null);
   };
 
   return (

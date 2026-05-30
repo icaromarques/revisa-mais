@@ -56,14 +56,14 @@ export function Calendario() {
          
          try {
              const { googleCalendarService } = await import('@/services/googleCalendar');
-             const status = await googleCalendarService.getConnectionStatus(user.uid);
+             const status = await googleCalendarService.getConnectionStatus(user.id);
              if (status.canSync) {
                  isSyncingRef.current = true;
                  if (!silent) setIsSyncing(true);
                  
                  const { timeMin, timeMax } = getCalendarVisibleRange(activeView, currentDate);
                  
-                 await calendarService.syncGoogleRange(user.uid, timeMin, timeMax).catch(e => {
+                 await calendarService.syncGoogleRange(user.id, timeMin, timeMax).catch(e => {
                      // don't spam console
                  });
                  lastSyncTime.current = Date.now();
@@ -101,7 +101,7 @@ export function Calendario() {
      isSyncingRef.current = true;
      try {
          const { googleCalendarService } = await import('@/services/googleCalendar');
-         const status = await googleCalendarService.getConnectionStatus(user.uid);
+         const status = await googleCalendarService.getConnectionStatus(user.id);
          if (!status.canSync) {
              toast.info(status.message || "Conecte o Google Calendar nas configurações.");
              setIsSyncing(false);
@@ -109,7 +109,7 @@ export function Calendario() {
              return;
          }
          const { timeMin, timeMax } = getCalendarVisibleRange(activeView, currentDate);
-         await calendarService.syncGoogleRange(user.uid, timeMin, timeMax);
+         await calendarService.syncGoogleRange(user.id, timeMin, timeMax);
          toast.success("Agenda sincronizada com Google Calendar!");
      } catch (e: any) {
          toast.error(e.message?.includes('expirou') ? "Sua conexão expirou. Reconecte nas configurações." : "Erro ao sincronizar GCal");
@@ -121,7 +121,7 @@ export function Calendario() {
 
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = calendarService.subscribeToUserEvents(user.uid, async (data) => {
+    const unsubscribe = calendarService.subscribeToUserEvents(user.id, async (data) => {
       
       const validData = data.filter(e => e.data_inicio && !isNaN(new Date(e.data_inicio).getTime()));
       
@@ -131,8 +131,8 @@ export function Calendario() {
       
       const { availabilityService } = await import('@/services/availabilityService');
       const { isSameDay } = await import('date-fns');
-      const gradeDocs = await availabilityService.getGradeFaculdade(user.uid);
-      const blockDocs = await availabilityService.getBloqueios(user.uid);
+      const gradeDocs = await availabilityService.getGradeFaculdade(user.id);
+      const blockDocs = await availabilityService.getBloqueios(user.id);
       
       const isDateWithinValidity = (item: any, d: Date) => {
          const startV = item.data_inicio_vigencia || item.periodo_inicio;
@@ -189,7 +189,7 @@ export function Calendario() {
 
              synthesizedEvents.push({
                 id: 'grade_'+g.id+'_'+startD.getTime(),
-                user_id: user.uid,
+                user_id: user.id,
                 titulo: g.titulo,
                 descricao: '',
                 tipo: 'aula',
@@ -221,7 +221,7 @@ export function Calendario() {
 
               synthesizedEvents.push({
                  id: 'block_'+b.id+'_'+startD.getTime(),
-                 user_id: user.uid,
+                 user_id: user.id,
                  titulo: b.titulo,
                  descricao: '',
                  tipo: 'bloqueio',

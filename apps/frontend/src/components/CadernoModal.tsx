@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { toast } from '@/lib/toast';
@@ -32,7 +35,7 @@ export function CadernoModal({ caderno, onClose }: CadernoModalProps) {
 
   useEffect(() => {
     if (!user || !caderno.id) return;
-    const q = query(collection(db, 'questoes'), where('user_id', '==', user.uid), where('caderno_id', '==', caderno.id));
+    const q = query(collection(db, 'questoes'), where('user_id', '==', user.id), where('caderno_id', '==', caderno.id));
     const unsub = onSnapshot(q, (snap) => {
       setQuestoes(snap.docs.map(d => ({id: d.id, ...d.data()})));
       setLoading(false);
@@ -140,7 +143,7 @@ export function CadernoModal({ caderno, onClose }: CadernoModalProps) {
      if (user && studyStartTime) {
          const end = new Date();
          const minutes = Math.ceil((end.getTime() - studyStartTime.getTime()) / 60000);
-         await historyService.registerStudySession(user.uid, {
+         await historyService.registerStudySession(user.id, {
              tipo: 'Questões',
              titulo: `Prática: ${caderno.nome}`,
              detalhes: `${acertos} acertos em ${questoes.length} questões.`,
@@ -167,7 +170,7 @@ export function CadernoModal({ caderno, onClose }: CadernoModalProps) {
       if (user) {
          try {
            await addDoc(collection(db, 'tentativas'), {
-              user_id: user.uid,
+              user_id: user.id,
               questao_id: questao.id,
               acertou: isCorrect,
               created_at: serverTimestamp()

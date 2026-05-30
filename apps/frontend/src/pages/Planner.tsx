@@ -15,8 +15,11 @@ import { GradeFaculdade, BloqueioAgenda } from '@/types/availability';
 import { useNavigate } from 'react-router-dom';
 import { googleCalendarService } from '@/services/googleCalendar';
 import { unifiedAvailabilityService } from '@/services/unifiedAvailabilityService';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { doc, getDoc } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -44,14 +47,14 @@ export function Planner() {
     googleCalendarService.syncToLocalDatabase().catch(e => console.error(e));
 
     // Get last sync context for header
-    getDoc(doc(db, 'users', user.uid)).then(d => {
+    getDoc(doc(db, 'users', user.id)).then(d => {
        if (d.exists()) {
           setLastSyncText(unifiedAvailabilityService.getSyncStatusDisplay(d.data().gcal_last_sync));
        }
     });
 
     // Fetch Eventos
-    const unsubscribe = calendarService.subscribeToUserEvents(user.uid, (events) => {
+    const unsubscribe = calendarService.subscribeToUserEvents(user.id, (events) => {
       const validEvents = events.filter(e => e.data_inicio && !isNaN(new Date(e.data_inicio).getTime()));
       const sorted = validEvents.sort((a,b) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime());
       setBlocos(sorted);
@@ -59,8 +62,8 @@ export function Planner() {
     });
 
     // Fetch Grade + Bloqueios
-    availabilityService.getGradeFaculdade(user.uid).then(res => setGrade(res.filter(g => g.ativo)));
-    availabilityService.getBloqueios(user.uid).then(res => setBloqueios(res.filter(b => b.ativo)));
+    availabilityService.getGradeFaculdade(user.id).then(res => setGrade(res.filter(g => g.ativo)));
+    availabilityService.getBloqueios(user.id).then(res => setBloqueios(res.filter(b => b.ativo)));
 
     return () => unsubscribe();
   }, [user]);
@@ -69,7 +72,7 @@ export function Planner() {
     if (!user) return;
     setGenerating(true);
     try {
-      const created = await plannerService.generateHeuristicSchedule(user.uid);
+      const created = await plannerService.generateHeuristicSchedule(user.id);
       if (created > 0) {
          toast.success(`${created} novos blocos sugeridos baseados em suas revisões pendentes!`);
       } else {

@@ -31,7 +31,7 @@ export function IntelligentPreferences({ preferences, settings, onChangePreferen
     onChangePreferences(updated as UserPreferences);
 
     try {
-      await userPreferencesService.updatePreferences(user.uid, section, data);
+      await userPreferencesService.updatePreferences(user.id, section, data);
     } catch(e) {
       toast.error('Erro ao salvar preferência.');
     }
@@ -46,8 +46,8 @@ export function IntelligentPreferences({ preferences, settings, onChangePreferen
     if (!user) return;
     setApplying(true);
     try {
-      await settingsPresetService.applyPreset(user.uid, presetId);
-      const newPrefs = await userPreferencesService.getPreferences(user.uid);
+      await settingsPresetService.applyPreset(user.id, presetId);
+      const newPrefs = await userPreferencesService.getPreferences(user.id);
       onChangePreferences(newPrefs);
       toast.success('Preset aplicado com sucesso!');
     } catch(e) {

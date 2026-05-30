@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { AlertCircle, Target, Layers, ArrowLeft } from 'lucide-react';
+import { authApiService } from '@/services/api/auth';
 
 export function Login() {
-  const { signInWithGoogle, signInAnonymously } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,17 +13,10 @@ export function Login() {
     setError('');
     setLoading(true);
     try {
-      await signInWithGoogle();
-      navigate('/dashboard');
+      await authApiService.loginWithGoogle();
+      // O redirect para /dashboard acontece dentro da API (/api/auth/google/callback)
     } catch (err: any) {
-      if (err.code === 'auth/network-request-failed') {
-        setError('Login com Google bloqueado pela pré-visualização. Por favor, abra o aplicativo em uma NOVA GUIA.');
-      } else if (err.code === 'auth/popup-closed-by-user') {
-        setError('O login foi cancelado.');
-      } else {
-        setError('Erro ao fazer login com Google. Tente novamente mais tarde.');
-      }
-    } finally {
+      setError('Erro ao iniciar o login com Google. Verifique se o servidor está rodando.');
       setLoading(false);
     }
   };
@@ -33,8 +25,9 @@ export function Login() {
     setError('');
     setDemoLoading(true);
     try {
-      await signInAnonymously();
-      navigate('/dashboard');
+      // Por enquanto, modo de demonstração vai ficar desabilitado ou mockado
+      // já que a API substituiu o Firebase Anonymously login
+      setError('Modo de demonstração será implementado via API em breve.');
     } catch (err: any) {
       console.error(err);
       setError('Erro ao entrar em Modo de Demonstração.');

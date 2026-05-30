@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { EventoAcademico } from '@/types/calendar';
 import { Plus, Trash2, Edit2, CheckCircle, Target, Award, ChevronDown, ChevronUp } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { addDoc, updateDoc, deleteDoc, doc, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { addDoc, updateDoc, deleteDoc, doc, collection, query, where, getDocs } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { availabilityService } from '@/services/availabilityService';
 import { toast } from '@/lib/toast';
@@ -51,7 +52,7 @@ export function AvaliacoesNotasTab({ materia, notas, events }: AvaliacoesNotasTa
     try {
       const payload = {
         materia_id: materia.id,
-        user_id: user.uid,
+        user_id: user.id,
         nome: form.nome,
         tipo: form.tipo,
         data: form.data,
@@ -139,9 +140,9 @@ export function AvaliacoesNotasTab({ materia, notas, events }: AvaliacoesNotasTa
               onConfirm: async () => {
                 if (!user) return;
                 try {
-                  const q = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.uid), where('materia_id', '==', materia.id));
+                  const q = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.id), where('materia_id', '==', materia.id));
                   const snap = await getDocs(q);
-                  await Promise.all(snap.docs.map(d => availabilityService.deleteGradeFaculdade(d.id, user.uid)));
+                  await Promise.all(snap.docs.map(d => availabilityService.deleteGradeFaculdade(d.id, user.id)));
                   toast.success("Horários da grade removidos.");
                 } catch(e) {
                   toast.error("Erro ao remover horários: " + String(e));

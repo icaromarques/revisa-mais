@@ -1,3 +1,5 @@
+// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
 import { db } from '@/lib/firebase';
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where, getDocs, writeBatch, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';

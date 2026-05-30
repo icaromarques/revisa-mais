@@ -1,3 +1,5 @@
+// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
 import { auth, db } from '@/lib/firebase';
 import { GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -173,7 +175,7 @@ export const googleCalendarService = {
         return { ok: false, step: 'unknown_error', message: err.message, technical: { firebaseCode: err.code } };
       }
       
-      if (result.user.uid !== currentUid) {
+      if (result.user.id !== currentUid) {
          this.clearLocalGoogleSession();
          await setDoc(doc(db, 'users', currentUid), {
             gcal_connected: false,

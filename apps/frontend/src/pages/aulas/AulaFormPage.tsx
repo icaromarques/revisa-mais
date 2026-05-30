@@ -6,8 +6,11 @@ import {
   Video, Link as LinkIcon, File, MoreVertical, Sparkles, AlertCircle, ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { db } from '@/lib/firebase';
-import { addDoc, collection, doc, updateDoc, writeBatch, query, where, onSnapshot, getDoc, getDocs } from 'firebase/firestore';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { addDoc, collection, doc, updateDoc, writeBatch, query, where, onSnapshot, getDoc, getDocs } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 import { Header } from '@/components/Header';
@@ -83,7 +86,7 @@ export function AulaFormPage() {
 
     const topicosQuery = query(
       collection(db, 'topicos'), 
-      where('user_id', '==', user.uid),
+      where('user_id', '==', user.id),
       where('materia_id', '==', materiaId)
     );
     const unsubTopicos = onSnapshot(topicosQuery, (snapshot) => {
@@ -92,7 +95,7 @@ export function AulaFormPage() {
 
     const ocorrenciasQuery = query(
       collection(db, 'ocorrencias_grade'),
-      where('user_id', '==', user.uid),
+      where('user_id', '==', user.id),
       where('materia_id', '==', materiaId)
     );
     const unsubOcorrencias = onSnapshot(ocorrenciasQuery, (snapshot) => {
@@ -200,7 +203,7 @@ export function AulaFormPage() {
     setSaving(true);
     try {
       const aulaData: any = {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: materiaId,
         titulo: form.titulo,
         data: form.data,
@@ -234,7 +237,7 @@ export function AulaFormPage() {
           let hasUpdates = false;
 
           // Revisions
-          const revsSnap = await getDocs(query(collection(db, 'revisoes'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)));
+          const revsSnap = await getDocs(query(collection(db, 'revisoes'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
           revsSnap.forEach(rev => {
              const newName = rev.data().nome.replace(oldTitulo, form.titulo);
              batchUpdate.update(rev.ref, { nome: newName });
@@ -242,7 +245,7 @@ export function AulaFormPage() {
           });
 
           // Events
-          const evtsSnap = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)));
+          const evtsSnap = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
           evtsSnap.forEach(evt => {
              const newTitle = evt.data().titulo.replace(oldTitulo, form.titulo);
              batchUpdate.update(evt.ref, { titulo: newTitle });
@@ -287,7 +290,7 @@ export function AulaFormPage() {
           if (!mat.id) { // Create
             const matRef = doc(collection(db, 'materiais'));
             batch.set(matRef, {
-              user_id: user.uid,
+              user_id: user.id,
               materia_id: materiaId,
               aula_id: aulaRefId,
               topico_id: form.topico_id,
@@ -318,7 +321,7 @@ export function AulaFormPage() {
               const dataISO = new Date(new Date().getTime() + dias * 24 * 60 * 60 * 1000).toISOString();
               const revRef = doc(collection(db, 'revisoes'));
               batch.set(revRef, {
-                user_id: user.uid,
+                user_id: user.id,
                 materia_id: materiaId,
                 aula_id: aulaRefId,
                 topico_id: form.topico_id,
@@ -340,7 +343,7 @@ export function AulaFormPage() {
             const t = form.horario || '12:00';
             const startISO = new Date(`${d}T${t}:00`).toISOString();
             batch.set(evtRef, {
-              user_id: user.uid,
+              user_id: user.id,
               materia_id: materiaId,
               aula_id: aulaRefId,
               topico_id: form.topico_id,
@@ -361,7 +364,7 @@ export function AulaFormPage() {
             const evtRef = doc(collection(db, 'eventos_academicos'));
             const startISO = new Date(new Date().getTime() + 1 * 24 * 60 * 60 * 1000).toISOString();
             batch.set(evtRef, {
-              user_id: user.uid,
+              user_id: user.id,
               materia_id: materiaId,
               aula_id: aulaRefId,
               topico_id: form.topico_id,
@@ -381,7 +384,7 @@ export function AulaFormPage() {
           if (form.auto_resumo_ia) {
             const resRef = doc(collection(db, 'resumos'));
             batch.set(resRef, {
-              user_id: user.uid,
+              user_id: user.id,
               materia_id: materiaId,
               aula_id: aulaRefId,
               topico_id: form.topico_id,
@@ -396,7 +399,7 @@ export function AulaFormPage() {
           if (form.auto_flashcards_ia) {
             const deckRef = doc(collection(db, 'decks'));
             batch.set(deckRef, {
-              user_id: user.uid,
+              user_id: user.id,
               materia_id: materiaId,
               aula_id: aulaRefId,
               topico_id: form.topico_id,

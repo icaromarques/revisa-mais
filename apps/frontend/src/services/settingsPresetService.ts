@@ -1,4 +1,6 @@
 import { UserPreferences } from '@/types/preferences';
+// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { userPreferencesService } from './userPreferencesService';

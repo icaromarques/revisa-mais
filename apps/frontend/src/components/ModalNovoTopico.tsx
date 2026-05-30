@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, BrainCircuit, Star, Hash, AlignLeft, Calendar } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { addDoc, collection, doc, updateDoc } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 
@@ -68,7 +71,7 @@ export function ModalNovoTopico({ isOpen, onClose, topicoAtual, materiaId }: Mod
     setLoading(true);
     try {
       const topicoData = {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: materiaId,
         nome: form.nome,
         descricao: form.descricao,

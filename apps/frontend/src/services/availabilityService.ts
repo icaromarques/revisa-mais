@@ -1,3 +1,5 @@
+// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
 import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { GradeFaculdade, BloqueioAgenda } from '@/types/availability';

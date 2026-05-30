@@ -1,3 +1,5 @@
+// TODO: A refatoração completa deste hook para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
 import { auth } from './firebase';
 
 export enum OperationType {

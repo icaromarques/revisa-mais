@@ -8,8 +8,11 @@ import {
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { db } from '@/lib/firebase';
-import { doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 import { Header } from '@/components/Header';
@@ -133,31 +136,31 @@ export function AulaDetalhePage() {
 
     // Fetch all classes of this materia for the material modal
     const unsubAllAulas = onSnapshot(
-      query(collection(db, 'aulas'), where('user_id', '==', user.uid), where('materia_id', '==', materiaId)),
+      query(collection(db, 'aulas'), where('user_id', '==', user.id), where('materia_id', '==', materiaId)),
       (snap) => setAllAulasInMateria(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
     // Fetch Topics
     const unsubTopicos = onSnapshot(
-      query(collection(db, 'topicos'), where('user_id', '==', user.uid), where('materia_id', '==', materiaId)),
+      query(collection(db, 'topicos'), where('user_id', '==', user.id), where('materia_id', '==', materiaId)),
       (snap) => setTopicos(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
     // Fetch Materials
     const unsubMateriais = onSnapshot(
-      query(collection(db, 'materiais'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)),
+      query(collection(db, 'materiais'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)),
       (snap) => setMateriais(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
     // Fetch Revisions
     const unsubRevisoes = onSnapshot(
-      query(collection(db, 'revisoes'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)),
+      query(collection(db, 'revisoes'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)),
       (snap) => setRevisoes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
     // Fetch Events (Evaluations)
     const unsubEventos = onSnapshot(
-        query(collection(db, 'eventos_academicos'), where('user_id', '==', user.uid), where('materia_id', '==', materiaId)),
+        query(collection(db, 'eventos_academicos'), where('user_id', '==', user.id), where('materia_id', '==', materiaId)),
         (snap) => setEventos(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
 
@@ -180,7 +183,7 @@ export function AulaDetalhePage() {
 
     // Fetch all materials of this materia
     const unsubAllMateriais = onSnapshot(
-      query(collection(db, 'materiais'), where('user_id', '==', user.uid), where('materia_id', '==', materiaId)),
+      query(collection(db, 'materiais'), where('user_id', '==', user.id), where('materia_id', '==', materiaId)),
       (snap) => setAllMateriaisMateria(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
     
@@ -208,28 +211,28 @@ export function AulaDetalhePage() {
         const batch = writeBatch(db);
         
         // Materials
-        const materialsToDel = await getDocs(query(collection(db, 'materiais'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)));
+        const materialsToDel = await getDocs(query(collection(db, 'materiais'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
         materialsToDel.forEach(d => batch.delete(d.ref));
 
         // Events associated
-        const eventsToDel = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)));
+        const eventsToDel = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
         eventsToDel.forEach(d => batch.delete(d.ref));
 
         await batch.commit();
 
         // Cascade delete revisoes (this handles Google Calendar sync)
-        await cascadeDeleteService.deleteAulaAndDerivates(aulaId, user.uid);
+        await cascadeDeleteService.deleteAulaAndDerivates(aulaId, user.id);
       } else {
         // Just unlink
         const batch = writeBatch(db);
         
-        const materialsToUnlink = await getDocs(query(collection(db, 'materiais'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)));
+        const materialsToUnlink = await getDocs(query(collection(db, 'materiais'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
         materialsToUnlink.forEach(d => batch.update(d.ref, { aula_id: null }));
 
-        const revisionsToUnlink = await getDocs(query(collection(db, 'revisoes'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)));
+        const revisionsToUnlink = await getDocs(query(collection(db, 'revisoes'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
         revisionsToUnlink.forEach(d => batch.update(d.ref, { aula_id: null }));
 
-        const eventsToUnlink = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.uid), where('aula_id', '==', aulaId)));
+        const eventsToUnlink = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
         eventsToUnlink.forEach(d => batch.update(d.ref, { aula_id: null }));
 
         await batch.commit();
@@ -332,7 +335,7 @@ export function AulaDetalhePage() {
     try {
       const dataISO = revisaoForm.data_prevista ? new Date(revisaoForm.data_prevista).toISOString() : null;
       const payload = {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: materiaId,
         aula_id: aulaId,
         topico_id: aula.topico_id || null,
@@ -450,7 +453,7 @@ export function AulaDetalhePage() {
     try {
       const dataISO = addDays(new Date(), 3).toISOString();
       await addDoc(collection(db, 'revisoes'), {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: materiaId,
         aula_id: aulaId,
         topico_id: aula.topico_id || '',
@@ -471,7 +474,7 @@ export function AulaDetalhePage() {
     try {
       const dataISO = addDays(new Date(), 1).toISOString();
       await addDoc(collection(db, 'eventos_academicos'), {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: materiaId,
         aula_id: aulaId,
         topico_id: aula.topico_id || '',

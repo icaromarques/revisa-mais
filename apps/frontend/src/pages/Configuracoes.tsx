@@ -2,8 +2,11 @@ import { Header } from '@/components/Header';
 import { Settings, Shield, Bell, Calendar as CalendarIcon, Clock, Zap, Monitor, Lock, LogOut, ChevronRight, Database, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { googleCalendarService, GCalDiagnosticResult } from '@/services/googleCalendar';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -26,11 +29,11 @@ function GoogleCalendarSettings() {
 
   useEffect(() => {
     if (!user) return;
-    const unsub = onSnapshot(doc(db, 'users', user.uid), (docsnap) => {
+    const unsub = onSnapshot(doc(db, 'users', user.id), (docsnap) => {
       if (docsnap.exists()) setUserData(docsnap.data());
     });
     
-    userPreferencesService.getPreferences(user.uid).then(p => {
+    userPreferencesService.getPreferences(user.id).then(p => {
        setPrefs(p?.googleCalendar || {
          syncReviewsByDefault: true,
          syncManualEventsByDefault: true,
@@ -44,7 +47,7 @@ function GoogleCalendarSettings() {
 
   useEffect(() => {
     if (!user) return;
-    googleCalendarService.getConnectionStatus(user.uid).then(st => {
+    googleCalendarService.getConnectionStatus(user.id).then(st => {
       setIsConnected(st.canSync);
       setLoading(false);
     });
@@ -101,7 +104,7 @@ function GoogleCalendarSettings() {
     if (!user) return;
     setSyncing(true);
     try {
-       const status = await googleCalendarService.getConnectionStatus(user.uid);
+       const status = await googleCalendarService.getConnectionStatus(user.id);
        if (!status.canSync) {
          toast.info(status.message || "Reconecte o Google Calendar para sincronizar.");
          return;
@@ -113,7 +116,7 @@ function GoogleCalendarSettings() {
        timeMax.setMonth(timeMax.getMonth() + 2); // Next 2 months
        
        const { calendarService } = await import('@/services/calendarService');
-       await calendarService.syncGoogleRange(user.uid, timeMin, timeMax);
+       await calendarService.syncGoogleRange(user.id, timeMin, timeMax);
        toast.success('Agenda sincronizada com sucesso!');
     } catch(e: any) {
        console.error("Sync error:", e);
@@ -300,11 +303,11 @@ export function Configuracoes() {
     if (!user) return;
     
     // Fetch preferences first as they are needed for analysis
-    userPreferencesService.getPreferences(user.uid).then(prefs => {
+    userPreferencesService.getPreferences(user.id).then(prefs => {
       setPreferences(prefs);
     });
 
-    const unsub = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
+    const unsub = onSnapshot(doc(db, 'users', user.id), (snapshot) => {
       if (snapshot.exists()) {
         setUserData(snapshot.data());
       }

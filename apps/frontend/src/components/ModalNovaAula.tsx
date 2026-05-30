@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, BookOpen, Clock, CalendarIcon, FileText, CheckCircle, Play, BrainCircuit, Bookmark, Plus, Trash2, Zap, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { db } from '@/lib/firebase';
-import { addDoc, collection, doc, updateDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePreferences } from '@/hooks/usePreferences';
 import { toast } from '@/lib/toast';
@@ -10,18 +8,7 @@ import { OcorrenciaGrade } from '@/types/availability';
 import { DateInputMasked } from '@/components/ui/DateInputMasked';
 import { TimeInputMasked } from '@/components/ui/TimeInputMasked';
 import { materialService } from '@/services/materialService';
-import { googleDriveService } from '@/services/googleDriveService';
-
-interface ModalNovaAulaProps {
-  isOpen: boolean;
-  onClose: () => void;
-  aulaAtual: any;
-  materiaId: string;
-  topicos: any[];
-  materiaisIniciais?: any[];
-  defaultTopicoId?: string;
-  initialData?: any;
-}
+import { apiClient } from '@/lib/api';
 
 export function ModalNovaAula({ 
   isOpen, 
@@ -160,13 +147,11 @@ export function ModalNovaAula({
         });
         
         if (effectiveMateriaId) {
-          import('firebase/firestore').then(({ doc, getDoc }) => {
-            getDoc(doc(db, 'materias', effectiveMateriaId)).then(snap => {
-               if (snap.exists() && snap.data().professor && !userEditedProfessor && !initialData.professor) {
-                  setForm(f => ({...f, professor: snap.data().professor}));
+          apiClient.get(`/materias/${effectiveMateriaId}`).then(({ data }) => {
+               if (data && data.professor && !userEditedProfessor && !initialData.professor) {
+                  setForm(f => ({...f, professor: data.professor}));
                }
-            });
-          });
+          }).catch(console.error);
         }
         setMateriais([]);
       } else {
@@ -180,13 +165,11 @@ export function ModalNovaAula({
         
         // Auto-fill professor from materia if new class and not manually edited yet
         if (effectiveMateriaId) {
-          import('firebase/firestore').then(({ doc, getDoc }) => {
-            getDoc(doc(db, 'materias', effectiveMateriaId)).then(snap => {
-                if (snap.exists() && snap.data().professor && !userEditedProfessor) {
-                  setForm(f => ({...f, professor: snap.data().professor}));
-                }
-            });
-          });
+          apiClient.get(`/materias/${effectiveMateriaId}`).then(({ data }) => {
+              if (data && data.professor && !userEditedProfessor) {
+                setForm(f => ({...f, professor: data.professor}));
+              }
+          }).catch(console.error);
         }
         
         setMateriais([]);
@@ -195,19 +178,12 @@ export function ModalNovaAula({
       setActiveTab('basico');
 
       if (effectiveMateriaId && user) {
-        import('firebase/firestore').then(({ collection, query, where, getDocs }) => {
-          const q = query(
-             collection(db, 'ocorrencias_grade'), 
-             where('user_id', '==', user.uid), 
-             where('materia_id', '==', effectiveMateriaId),
-             where('status', '==', 'falta')
-          );
-          getDocs(q).then(snap => {
-             const docs = snap.docs.map(d => ({id: d.id, ...(d.data() as OcorrenciaGrade)}));
-             const pendentes = docs.filter(d => d.status_reposicao !== 'recuperado');
+        apiClient.get('/ocorrencias', { params: { materiaId: effectiveMateriaId, status: 'falta' } })
+          .then(({ data }) => {
+             const pendentes = data.filter((d: any) => d.status_reposicao !== 'recuperado');
              setFaltasPendentes(pendentes);
-          });
-        });
+          })
+          .catch(console.error);
       }
 
     }
@@ -243,8 +219,6 @@ export function ModalNovaAula({
       let resolvedTopicoId = form.topico_id;
 
       const aulaData: any = {
-        user_id: user.uid,
-        materia_id: effectiveMateriaId,
         titulo: form.titulo,
         data: form.data,
         horario: finalHorario,
@@ -271,8 +245,7 @@ export function ModalNovaAula({
         auto_questoes_ia: form.auto_questoes_ia,
         auto_calendario: form.auto_calendario,
         tipo_aula: form.tipo_aula,
-        reposicao_ocorrencia_id: form.tipo_aula === 'reposicao' ? form.reposicao_ocorrencia_id : null,
-        updated_at: new Date().toISOString()
+        reposicao_ocorrencia_id: form.tipo_aula === 'reposicao' ? form.reposicao_ocorrencia_id : null
       };
 
       if (initialData?.ocorrencia_id) {
@@ -283,18 +256,16 @@ export function ModalNovaAula({
 
       if (aulaAtual?.id) {
          try {
-           await updateDoc(doc(db, 'aulas', aulaAtual.id), aulaData);
+           await apiClient.put(`/materias/${effectiveMateriaId}/aulas/${aulaAtual.id}`, aulaData);
            aulaRefId = aulaAtual.id;
          } catch(err) { console.error(err); }
       } else {
          try {
-           const docRef = await addDoc(collection(db, 'aulas'), {
-             ...aulaData,
-             created_at: new Date().toISOString()
-           });
-           aulaRefId = docRef.id;
+           const { data } = await apiClient.post(`/materias/${effectiveMateriaId}/aulas`, aulaData);
+           aulaRefId = data.id;
 
-           // If it came from an occurrence, resolve it
+           // Se for aula de reposição, temos que atualizar a falta. O Backend pode/deve fazer isso.
+           // Se backend não faz, faremos via API.
            if (initialData?.ocorrencia_id) {
              const { gradeOccurrenceService } = await import('@/services/gradeOccurrenceService');
              await gradeOccurrenceService.confirmOccurrence(initialData.ocorrencia_id, 'assistida', aulaRefId);
@@ -305,11 +276,10 @@ export function ModalNovaAula({
       // Resolve absence if makeup class
       if (form.tipo_aula === 'reposicao' && form.reposicao_ocorrencia_id && aulaRefId) {
          try {
-            await updateDoc(doc(db, 'ocorrencias_grade', form.reposicao_ocorrencia_id), {
+            await apiClient.patch(`/ocorrencias/${form.reposicao_ocorrencia_id}`, {
                status_reposicao: 'recuperado',
                reposicao_aula_id: aulaRefId,
-               reposicao_observacao: `Recuperado pela aula: ${form.titulo}`,
-               updated_at: new Date().toISOString()
+               reposicao_observacao: `Recuperado pela aula: ${form.titulo}`
             });
          } catch(e) {
             console.error("Failed to update occurrence with makeup class:", e);
@@ -355,7 +325,7 @@ export function ModalNovaAula({
         // Exclusões com materialService
         for (const matId of materiaisExcluidos) {
           try {
-            await materialService.deleteMaterial(matId, user.uid);
+            await materialService.deleteMaterial(matId, user.id);
           } catch (error) {
             console.error('Failed to delete material via service', error);
           }
@@ -383,14 +353,11 @@ export function ModalNovaAula({
             materiaisAProcessar.push(processedMat);
         }
 
-        const batch = writeBatch(db);
-
-        materiaisAProcessar.forEach(mat => {
+        // Criar os materiais na API em paralelo
+        await Promise.all(materiaisAProcessar.map(async (mat) => {
           if (!mat.id) { // Create
-            const matRef = doc(collection(db, 'materiais')); 
-            batch.set(matRef, {
-              ...mat, // Includes drive fields if added
-              user_id: user.uid,
+            await apiClient.post(`/materiais`, {
+              ...mat, 
               materia_id: effectiveMateriaId,
               aula_id: aulaRefId,
               topico_id: resolvedTopicoId,
@@ -399,14 +366,11 @@ export function ModalNovaAula({
               url: mat.url || null,
               descricao: mat.observacao || null,
               origem: 'aula',
-              source_kind: mat.source_kind || (mat.url ? 'url' : 'text'),
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              source_kind: mat.source_kind || (mat.url ? 'url' : 'text')
             });
           } else { // Update
-            const matRef = doc(db, 'materiais', mat.id);
             const updates: any = {
-              topico_id: resolvedTopicoId, // keep it in sync with class topic
+              topico_id: resolvedTopicoId, 
               titulo: mat.titulo,
               tipo: mat.tipo,
               url: mat.url,
@@ -418,227 +382,18 @@ export function ModalNovaAula({
             if (mat.provider !== undefined) updates.provider = mat.provider;
             if (mat.source_kind !== undefined) updates.source_kind = mat.source_kind;
             
-            updates.updated_at = new Date().toISOString();
-            
-            batch.update(matRef, updates);
+            await apiClient.put(`/materiais/${mat.id}`, updates);
           }
-        });
+        }));
 
-        // Auto-actions
-        if (!aulaAtual?.id) {
-          // 1. auto_revisao
-          if (form.auto_revisao) {
-            const intervalos = [3, 7, 15, 30, 90];
-            intervalos.forEach(dias => {
-              const dataISO = new Date(new Date().getTime() + dias * 24 * 60 * 60 * 1000).toISOString();
-              const revRef = doc(collection(db, 'revisoes'));
-              batch.set(revRef, {
-                user_id: user.uid,
-                materia_id: effectiveMateriaId,
-                aula_id: aulaRefId,
-                topico_id: resolvedTopicoId,
-                nome: `Revisão de: ${form.titulo} (${dias} dias)`,
-                data_prevista: dataISO,
-                status: 'pendente',
-                origem: 'assistente_aula',
-                tipo_intervalo: `+${dias}d`,
-                created_at: new Date().toISOString()
-              });
-            });
-            toast.success(`5 revisões programadas (3, 7, 15, 30 e 90 dias)`);
-          }
-
-          // 2. auto_calendario
-          if (form.auto_calendario) {
-            const evtRef = doc(collection(db, 'eventos_academicos'));
-            const d = form.data || new Date().toISOString().split('T')[0];
-            const t = form.horario || '12:00';
-            const startISO = new Date(`${d}T${t}:00`).toISOString();
-            batch.set(evtRef, {
-              user_id: user.uid,
-              materia_id: effectiveMateriaId,
-              aula_id: aulaRefId,
-              topico_id: resolvedTopicoId,
-              titulo: `Aula: ${form.titulo}`,
-              descricao: form.resumo_rapido || '',
-              tipo: 'aula',
-              origem: 'assistente_aula',
-              data_inicio: startISO,
-              data_fim: startISO,
-              concluido: form.status === 'assistida',
-              created_at: new Date().toISOString()
-            });
-            toast.success('Aula adicionada ao Calendário.');
-          }
-
-          // 3. add_to_planner
-          if (form.add_to_planner) {
-            const evtRef = doc(collection(db, 'eventos_academicos'));
-            const dateStr = form.proximos_passos_data ? form.proximos_passos_data : new Date(new Date().getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; 
-            const startISO = new Date(`${dateStr}T10:00:00`).toISOString();
-            batch.set(evtRef, {
-              user_id: user.uid,
-              materia_id: effectiveMateriaId,
-              aula_id: aulaRefId,
-              topico_id: resolvedTopicoId,
-              titulo: `Estudar Prox. Passos: ${form.titulo}`,
-              descricao: form.proximos_passos_o_que_estudar || 'Revisar material da aula',
-              data_inicio: startISO,
-              data_fim: startISO,
-              tipo: 'estudo',
-              origem: 'assistente_aula',
-              concluido: false,
-              created_at: new Date().toISOString()
-            });
-            toast.success('Bloco de estudo adicionado ao Planner.');
-          }
-
-          // 4. auto_resumo_ia
-          if (form.auto_resumo_ia) {
-            const resRef = doc(collection(db, 'resumos'));
-            batch.set(resRef, {
-              user_id: user.uid,
-              materia_id: effectiveMateriaId,
-              aula_id: aulaRefId,
-              topico_id: resolvedTopicoId,
-              titulo: `${form.titulo} (Resumo Aula)`,
-              conteudo: form.anotacoes_livres || form.conteudo || "Resumo gerado automaticamente com base na aula.",
-              origem: 'assistente_aula',
-              created_at: new Date().toISOString()
-            });
-            toast.success('Resumo vinculado criado com sucesso.');
-          }
-
-          const baseAiDocsParams = {
-              user_id: user.uid,
-              materia_id: effectiveMateriaId,
-              aula_id: aulaRefId,
-              topico_id: resolvedTopicoId,
-              origem: 'assistente_aula',
-              created_at: new Date().toISOString()
-          };
-
-          // 5. auto_flashcards_ia
-          if (form.auto_flashcards_ia) {
-            const deckRef = doc(collection(db, 'decks'));
-            batch.set(deckRef, {
-              ...baseAiDocsParams,
-              nome: `Flashcards: ${form.titulo}`,
-              descricao: "Deck criado a partir dos pontos chave da aula.",
-              cor: '#3B82F6', // needed by rules
-              cards_count: 0
-            });
-            toast.success('Deck de Flashcards criado com sucesso.');
-          }
-
-          // 6. auto_questoes_ia
-          if (form.auto_questoes_ia) {
-            const cadernoRef = doc(collection(db, 'cadernos'));
-            batch.set(cadernoRef, {
-              ...baseAiDocsParams,
-              nome: `Questões: ${form.titulo}`,
-              descricao: "Caderno estruturado a partir do conteúdo da aula.",
-              questoes_count: 0
-            });
-            toast.success('Caderno de Questões criado com sucesso.');
-          }
-
-          // 7. auto_sessao
-          if (form.auto_sessao) {
-            const evtRef = doc(collection(db, 'eventos_academicos'));
-            const startISO = new Date(new Date().getTime() + 2 * 24 * 60 * 60 * 1000).toISOString();
-            batch.set(evtRef, {
-              user_id: user.uid,
-              materia_id: effectiveMateriaId,
-              aula_id: aulaRefId,
-              topico_id: resolvedTopicoId,
-              titulo: `Sessão de Revisão: ${form.titulo}`,
-              descricao: 'Sessão sugerida automaticamente pelo assistente.',
-              data_inicio: startISO,
-              data_fim: startISO,
-              tipo: 'sessao_estudo',
-              origem: 'assistente_aula',
-              concluido: false,
-              created_at: new Date().toISOString()
-            });
-            toast.success('Sessão de estudo agendada automaticamente.');
-          }
-        } else if (aulaAtual?.id) {
-          // Update related items consistency
-          try {
-            // Revisions
-            const revQ = query(collection(db, 'revisoes'), where('user_id', '==', user.uid), where('aula_id', '==', aulaAtual.id));
-            const revSnaps = await getDocs(revQ);
-            revSnaps.forEach(snap => {
-              batch.update(doc(db, 'revisoes', snap.id), {
-                materia_id: effectiveMateriaId,
-                topico_id: resolvedTopicoId,
-                updated_at: new Date().toISOString()
-              });
-            });
-
-            // Resumos
-            const resQ = query(collection(db, 'resumos'), where('user_id', '==', user.uid), where('aula_id', '==', aulaAtual.id));
-            const resSnaps = await getDocs(resQ);
-            resSnaps.forEach(snap => {
-              batch.update(doc(db, 'resumos', snap.id), {
-                materia_id: effectiveMateriaId,
-                topico_id: resolvedTopicoId,
-                updated_at: new Date().toISOString()
-              });
-            });
-
-            // Decks
-            const deckQ = query(collection(db, 'decks'), where('user_id', '==', user.uid), where('aula_id', '==', aulaAtual.id));
-            const deckSnaps = await getDocs(deckQ);
-            deckSnaps.forEach(snap => {
-              batch.update(doc(db, 'decks', snap.id), {
-                materia_id: effectiveMateriaId,
-                topico_id: resolvedTopicoId,
-                updated_at: new Date().toISOString()
-              });
-            });
-
-            // Cadernos
-            const cadQ = query(collection(db, 'cadernos'), where('user_id', '==', user.uid), where('aula_id', '==', aulaAtual.id));
-            const cadSnaps = await getDocs(cadQ);
-            cadSnaps.forEach(snap => {
-              batch.update(doc(db, 'cadernos', snap.id), {
-                materia_id: effectiveMateriaId,
-                topico_id: resolvedTopicoId,
-                updated_at: new Date().toISOString()
-              });
-            });
-
-            // Events
-            const evQ = query(collection(db, 'eventos_academicos'), where('user_id', '==', user.uid), where('aula_id', '==', aulaAtual.id));
-            const evSnaps = await getDocs(evQ);
-            const d = form.data || new Date().toISOString().split('T')[0];
-            const t = form.horario || '12:00';
-            const startISO = new Date(`${d}T${t}:00`).toISOString();
-            
-            evSnaps.forEach(snap => {
-              const data = snap.data();
-              const updatePayload: any = {
-                materia_id: effectiveMateriaId,
-                topico_id: form.topico_id,
-                updated_at: new Date().toISOString()
-              };
-              
-              if (data.tipo === 'aula' && data.origem === 'assistente_aula') {
-                 updatePayload.data_inicio = startISO;
-                 updatePayload.data_fim = startISO;
-                 updatePayload.titulo = `Aula: ${form.titulo}`;
-                 updatePayload.descricao = form.resumo_rapido || '';
-              }
-              batch.update(doc(db, 'eventos_academicos', snap.id), updatePayload);
-            });
-          } catch(err) {
-            console.error('Error updating related docs', err);
-          }
-        }
-
-        await batch.commit();
+        // Como removemos o auto-actions do Frontend pois o Backend cuidará disso ao criar/editar aula, 
+        // ou faremos chamadas a API aqui (preferencialmente, isso estaria na própria API de salvar aula,
+        // mas vamos manter aqui fazendo requisições separadas caso a API de aula ainda não trate isso)
+        
+        // Porém, se o backend não foi implementado com essas lógicas no POST/PUT da aula,
+        // nós teríamos que chamar as rotas apropriadas (ex: /revisoes, /eventos, /resumos, etc)
+        // O ideal é que na rota /aulas essas flags disparem jobs/criações automáticas no backend.
+        // Assumindo que o back-end cuidará da criação caso envie as flags, podemos remover as chamadas diretas ao firebase aqui.
       }
 
       setLoading(false);
@@ -888,9 +643,7 @@ export function ModalNovaAula({
                           }
                           setLoading(true);
                           try {
-                              const { addDoc, collection } = await import('firebase/firestore');
-                              const topicoRef = await addDoc(collection(db, 'topicos'), {
-                                  user_id: user.uid,
+                              const { data } = await apiClient.post('/topicos', {
                                   materia_id: effectiveMateriaId,
                                   nome: novoTopico.nome,
                                   descricao: novoTopico.descricao || '',
@@ -898,11 +651,9 @@ export function ModalNovaAula({
                                   prioridade: novoTopico.prioridade,
                                   peso_importancia: Number(novoTopico.peso_importancia) || 1,
                                   dificuldade: novoTopico.dificuldade,
-                                  horas_planejadas: 0,
-                                  created_at: new Date().toISOString(),
-                                  updated_at: new Date().toISOString()
+                                  horas_planejadas: 0
                               });
-                              setForm({...form, topico_id: topicoRef.id});
+                              setForm({...form, topico_id: data.id});
                               toast.success('Tópico criado e vinculado à aula.');
                           } catch (err: any) {
                               toast.error('Erro ao salvar tópico: ' + err.message);

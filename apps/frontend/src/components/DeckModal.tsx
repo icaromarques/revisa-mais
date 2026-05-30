@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { toast } from '@/lib/toast';
@@ -30,7 +33,7 @@ export function DeckModal({ deck, onClose }: DeckModalProps) {
 
   useEffect(() => {
     if (!user || !deck.id) return;
-    const q = query(collection(db, 'flashcards'), where('user_id', '==', user.uid), where('deck_id', '==', deck.id));
+    const q = query(collection(db, 'flashcards'), where('user_id', '==', user.id), where('deck_id', '==', deck.id));
     const unsub = onSnapshot(q, (snap) => {
       setCards(snap.docs.map(d => ({id: d.id, ...d.data()})));
       setLoading(false);
@@ -103,7 +106,7 @@ export function DeckModal({ deck, onClose }: DeckModalProps) {
      if (user && studyStartTime) {
          const end = new Date();
          const minutes = Math.ceil((end.getTime() - studyStartTime.getTime()) / 60000);
-         await historyService.registerStudySession(user.uid, {
+         await historyService.registerStudySession(user.id, {
              tipo: 'Flashcards',
              titulo: `Estudo: ${deck.nome}`,
              detalhes: `${cards.length} cards revisados.`,

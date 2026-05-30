@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 import { OcorrenciaGrade } from '@/types/availability';
@@ -38,8 +41,8 @@ export function ModalRecuperarFalta({ isOpen, onClose, faltaToRecuperar }: Modal
       });
       
       const fetchRelated = async () => {
-         const qAulas = query(collection(db, 'aulas'), where('user_id', '==', user.uid), where('materia_id', '==', faltaToRecuperar.materia_id));
-         const qSessoes = query(collection(db, 'sessoes'), where('user_id', '==', user.uid), where('materia_id', '==', faltaToRecuperar.materia_id));
+         const qAulas = query(collection(db, 'aulas'), where('user_id', '==', user.id), where('materia_id', '==', faltaToRecuperar.materia_id));
+         const qSessoes = query(collection(db, 'sessoes'), where('user_id', '==', user.id), where('materia_id', '==', faltaToRecuperar.materia_id));
          
          const [sAulas, sSessoes] = await Promise.all([getDocs(qAulas), getDocs(qSessoes)]);
          setAulas(sAulas.docs.map(d => ({id: d.id, ...d.data()})));

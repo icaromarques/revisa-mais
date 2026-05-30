@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
+// TODO: A refatoração completa deste hook para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { doc, onSnapshot } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 
 export function useRestWindow() {
   const { user } = useAuth();
@@ -9,7 +12,7 @@ export function useRestWindow() {
 
   useEffect(() => {
     if (!user) return;
-    const unsub = onSnapshot(doc(db, 'users', user.uid), (docS) => {
+    const unsub = onSnapshot(doc(db, 'users', user.id), (docS) => {
       if (docS.exists()) {
         const data = docS.data();
         if (data.settings?.restWindow) {

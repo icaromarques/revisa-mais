@@ -47,7 +47,7 @@ export function DataManagement() {
     setIsScanning(true);
     try {
       const { integrityService } = await import('@/services/integrityService');
-      const result = await integrityService.runIntegrityScan(user.uid);
+      const result = await integrityService.runIntegrityScan(user.id);
       setScanResult(result);
       if (result.issuesFound === 0) {
         toast.success("Nenhum problema de integridade encontrado!");
@@ -67,7 +67,7 @@ export function DataManagement() {
     setIsRepairing(true);
     try {
       const { integrityService } = await import('@/services/integrityService');
-      const count = await integrityService.repairIssues(user.uid, scanResult.issues);
+      const count = await integrityService.repairIssues(user.id, scanResult.issues);
       toast.success(`${count} problemas corrigidos com sucesso!`);
       // Re-scan to update UI
       loadHealth();
@@ -83,7 +83,7 @@ export function DataManagement() {
     if (!user) return;
     setLoading(true);
     try {
-      const data = await dataService.getResetImpact(user.uid, module);
+      const data = await dataService.getResetImpact(user.id, module);
       setImpact(data);
     } catch (e) {
       console.error(e);
@@ -103,7 +103,7 @@ export function DataManagement() {
 
     setLoading(true);
     try {
-      await dataService.resetData(user.uid, resetModal.module);
+      await dataService.resetData(user.id, resetModal.module);
       toast.success(resetModal.module === 'total' ? "Sistema resetado com sucesso!" : "Módulo limpo com sucesso!");
       setResetModal({ open: false, module: null });
       setConfirmationText('');
@@ -120,7 +120,7 @@ export function DataManagement() {
     if (!user) return;
     setIsExporting(true);
     try {
-      const json = await dataService.exportUserData(user.uid);
+      const json = await dataService.exportUserData(user.id);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

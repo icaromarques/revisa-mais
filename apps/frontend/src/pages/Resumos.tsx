@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { FileText, Plus, BrainCircuit, Trash2, Edit2, Search } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy } from 'firebase/firestore';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { toast } from '@/lib/toast';
@@ -29,7 +32,7 @@ export function Resumos() {
     if (!user) return;
     
     // Fetch Materias
-    const unsubMaterias = onSnapshot(query(collection(db, 'materias'), where('user_id', '==', user.uid)), (snap) => {
+    const unsubMaterias = onSnapshot(query(collection(db, 'materias'), where('user_id', '==', user.id)), (snap) => {
       const map:any = {};
       const arr:any = [];
       snap.docs.forEach(d => {
@@ -41,13 +44,13 @@ export function Resumos() {
     });
 
     // Fetch Topicos
-    const unsubTopicos = onSnapshot(query(collection(db, 'topicos'), where('user_id', '==', user.uid)), (snap) => {
+    const unsubTopicos = onSnapshot(query(collection(db, 'topicos'), where('user_id', '==', user.id)), (snap) => {
       setTopicosObj(snap.docs.map(d => ({id: d.id, ...d.data()})));
     });
 
     const q = query(
       collection(db, 'resumos'),
-      where('user_id', '==', user.uid),
+      where('user_id', '==', user.id),
       orderBy('created_at', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -101,7 +104,7 @@ export function Resumos() {
       } else {
         await addDoc(collection(db, 'resumos'), {
           ...payload,
-          user_id: user.uid,
+          user_id: user.id,
           origem: 'manual',
           created_at: new Date().toISOString()
         });

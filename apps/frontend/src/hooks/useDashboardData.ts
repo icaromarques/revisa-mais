@@ -1,14 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
+import { apiClient } from '@/lib/api';
 import { TimeRange, dateFilters } from '@/lib/dashboard/dateFilters';
 import { calculateWeeklyStreak, StreakData } from '@/lib/dashboard/streak';
 import { buildAgendaItems, AgendaItem } from '@/lib/dashboard/agenda';
 import { calendarService } from '@/services/calendarService';
 import { availabilityService } from '@/services/availabilityService';
 import { gradeOccurrenceService } from '@/services/gradeOccurrenceService';
-import { startOfDay, isSameDay } from 'date-fns';
-import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';
+import { startOfDay } from 'date-fns';
 import { getPerformanceClass, PerformanceClass } from '@/lib/performanceUtils';
 import { OcorrenciaGrade } from '@/types/availability';
 import { calculateTotalExpectedOccurrences } from '@/lib/attendanceHelper';
@@ -64,116 +62,86 @@ export function useDashboardData(userId: string | undefined, timeRange: TimeRang
       return;
     }
 
+    let isMounted = true;
     setLoading(true);
 
-    // 1. Materias
-    const unsubMaterias = onSnapshot(query(collection(db, 'materias'), where('user_id', '==', userId)), (snap) => {
-      const map: Record<string, {nome: string, cor: string}> = {};
-      const list = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
-      list.forEach(m => { map[m.id!] = { nome: m.nome, cor: m.cor }; });
-      setMateriasMap(map);
-      setMaterias(list);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'materias');
-    });
+    const fetchData = async () => {
+      try {
+        // 1. Materias
+        const { data: materiasData } = await apiClient.get('/materias');
+        if (!isMounted) return;
+        
+        const map: Record<string, {nome: string, cor: string}> = {};
+        materiasData.forEach((m: any) => { map[m.id] = { nome: m.nome, cor: m.cor }; });
+        setMateriasMap(map);
+        setMaterias(materiasData);
 
-    // 2. Sessoes (Filtered by timeRange)
-    const { startDate, endDate } = dateFilters.getRangeDates(timeRange, customStart, customEnd);
-    
-    // Calculate previous period for comparisons
-    const duration = endDate.getTime() - startDate.getTime();
-    const prevEndDate = new Date(startDate.getTime() - 1);
-    const prevStartDate = new Date(prevEndDate.getTime() - duration);
+        // 2. Sessoes
+        const { startDate, endDate } = dateFilters.getRangeDates(timeRange, customStart, customEnd);
+        const { data: sessoesData } = await apiClient.get('/sessoes', {
+          params: { startDate: startDate.toISOString(), endDate: endDate.toISOString() }
+        });
+        if (!isMounted) return;
+        setSessoes(sessoesData.map((d: any) => integrityService.normalizeSession(d)));
 
-    const unsubSessoes = onSnapshot(
-      query(collection(db, 'sessoes'), where('user_id', '==', userId), where('created_at', '>=', Timestamp.fromDate(startDate)), where('created_at', '<=', Timestamp.fromDate(endDate))),
-      (snap) => {
-        setSessoes(snap.docs.map(d => integrityService.normalizeSession({ id: d.id, ...d.data() })));
+        // Previous Period Sessoes
+        const duration = endDate.getTime() - startDate.getTime();
+        const prevEndDate = new Date(startDate.getTime() - 1);
+        const prevStartDate = new Date(prevEndDate.getTime() - duration);
+        const { data: prevSessoesData } = await apiClient.get('/sessoes', {
+          params: { startDate: prevStartDate.toISOString(), endDate: prevEndDate.toISOString() }
+        });
+        if (!isMounted) return;
+        setPreviousSessoes(prevSessoesData);
+
+        // 3. Revisoes Pendentes
+        const { data: revisoesData } = await apiClient.get('/revisoes', { params: { status: 'pendente' } });
+        if (!isMounted) return;
+        setRevisoesPendentes(revisoesData.map((d: any) => integrityService.normalizeReview(d)));
+
+        // 4. Academic Events
+        const eventosData = await calendarService.fetchUserEvents(userId);
+        if (!isMounted) return;
+        
+        const filteredEvents = eventosData.filter(e => e.data_inicio && !isNaN(parseValidDate(e.data_inicio).getTime()));
+        // TODO: Mover lógica pesada do GoogleCalendarService para o backend. 
+        // Por ora, manter apenas eventos internos para o MVP da refatoração.
+        setAcademicEvents(filteredEvents);
+
+        // 5. Grade & Bloqueios
+        const grade = await availabilityService.getGradeFaculdade(userId);
+        const blocks = await availabilityService.getBloqueios(userId);
+        if (!isMounted) return;
+        setGradeDocs(grade);
+        setBlockDocs(blocks);
+
+        // 6. Occurrences
+        const { data: ocorrenciasData } = await apiClient.get('/ocorrencias'); // Rota a ser ajustada se necessário
+        if (!isMounted) return;
+        setOcorrencias(ocorrenciasData.map((d: any) => integrityService.normalizeAbsence(d)));
+        
+        // Trigger daily occurrences (should idealmente estar no BE em Cron)
+        gradeOccurrenceService.generateDailyOccurrences(userId);
+
+        // Streak Sessions
+        const { startDate: streakStart } = dateFilters.getRangeDates('7d');
+        const { data: streakData } = await apiClient.get('/sessoes', {
+           params: { startDate: streakStart.toISOString() }
+        });
+        if (!isMounted) return;
+        setStreakSessoes(streakData);
+
         setLoading(false);
-      },
-      (err) => handleFirestoreError(err, OperationType.LIST, 'sessoes')
-    );
-
-    const unsubPrevSessoes = onSnapshot(
-      query(collection(db, 'sessoes'), where('user_id', '==', userId), where('created_at', '>=', Timestamp.fromDate(prevStartDate)), where('created_at', '<=', Timestamp.fromDate(prevEndDate))),
-      (snap) => {
-        setPreviousSessoes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      },
-      (err) => handleFirestoreError(err, OperationType.LIST, 'sessoes')
-    );
-
-    // 3. Revisoes Pendentes (Overall to find critical ones)
-    const unsubRevisoes = onSnapshot(query(collection(db, 'revisoes'), where('user_id', '==', userId), where('status', '==', 'pendente')), (snap) => {
-      setRevisoesPendentes(snap.docs.map(d => integrityService.normalizeReview({ id: d.id, ...d.data() })));
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'revisoes');
-    });
-
-    // 4. Academic Events
-    const unsubEvents = calendarService.subscribeToUserEvents(userId, async (events) => {
-       const filtered = events.filter(e => e.data_inicio && !isNaN(parseValidDate(e.data_inicio).getTime()));
-       
-       const { googleCalendarService } = await import('@/services/googleCalendar');
-       let externalEvents: any[] = [];
-       if (await googleCalendarService.isConnected()) {
-           try {
-             const endCal = new Date(endDate); endCal.setDate(endCal.getDate() + 7);
-             const gcalItems = await googleCalendarService.fetchEvents(new Date(startDate), endCal);
-             const internalGcalIds = new Set(events.filter(e => e.google_event_id).map(e => e.google_event_id));
-             
-             externalEvents = gcalItems
-               .filter((item: any) => !internalGcalIds.has(item.id))
-               .map((item: any) => ({
-                 id: item.id,
-                 titulo: item.summary || 'Sem Título',
-                 tipo: 'evento_google',
-                 data_inicio: item.start.dateTime || item.start.date,
-                 data_fim: item.end.dateTime || item.end.date,
-                 cor: '#4285F4',
-                 concluido: false,
-                 origem: 'google'
-               }));
-           } catch(e) { }
-       }
-       setAcademicEvents([...filtered, ...externalEvents]);
-    });
-
-    // 5. Grade & Bloqueios
-    availabilityService.getGradeFaculdade(userId).then(setGradeDocs);
-    availabilityService.getBloqueios(userId).then(setBlockDocs);
-
-    // 6. Occurrences (Specific for Today generally, but we can query by range if needed)
-    // For confirmation workflow, we usually want "pendente_confirmacao" or current date ones.
-    const unsubOcorrencias = onSnapshot(
-      query(collection(db, 'ocorrencias_grade'), where('user_id', '==', userId), orderBy('data', 'desc')),
-      (snap) => {
-        setOcorrencias(snap.docs.map(d => integrityService.normalizeAbsence({ id: d.id, ...d.data() }) as OcorrenciaGrade));
-      },
-      (err) => handleFirestoreError(err, OperationType.LIST, 'ocorrencias_grade')
-    );
-
-    // Trigger daily occurrence generation
-    gradeOccurrenceService.generateDailyOccurrences(userId);
-
-    // Fetch Last 7 Days Sessoes specifically for streak
-    const unsubStreakSessoes = onSnapshot(
-      query(collection(db, 'sessoes'), where('user_id', '==', userId), where('created_at', '>=', Timestamp.fromDate(dateFilters.getRangeDates('7d').startDate))),
-      (snap) => {
-        setStreakSessoes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      },
-      (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'sessoes-streak');
+      } catch (e) {
+        console.error("Error fetching dashboard data via API", e);
+        if (isMounted) setLoading(false);
       }
-    );
+    };
+
+    fetchData();
 
     return () => {
-      unsubMaterias();
-      unsubSessoes();
-      unsubPrevSessoes();
-      unsubRevisoes();
-      unsubEvents();
-      unsubStreakSessoes();
-      unsubOcorrencias();
+      isMounted = false;
     };
   }, [userId, timeRange, customStart, customEnd]);
 
@@ -198,7 +166,6 @@ export function useDashboardData(userId: string | undefined, timeRange: TimeRang
   const streak = useMemo(() => calculateWeeklyStreak(streakSessoes, revisoesPendentes), [streakSessoes, revisoesPendentes]);
 
   const allAgenda = useMemo(() => {
-      // Create a list of dates to parse
       const { startDate, endDate } = dateFilters.getRangeDates(timeRange, customStart, customEnd);
       let ds: Date[] = [];
       let dIter = new Date(startDate);
@@ -210,13 +177,11 @@ export function useDashboardData(userId: string | undefined, timeRange: TimeRang
   }, [timeRange, customStart, customEnd, gradeDocs, blockDocs, academicEvents]);
 
   const todayAgenda = useMemo(() => {
-     // use the start date of the selected range instead of explicitly today, so "Amanhã" works naturally for the user's focus
      const { startDate } = dateFilters.getRangeDates(timeRange, customStart, customEnd);
      return buildAgendaItems([startOfDay(startDate)], gradeDocs, blockDocs, academicEvents);
   }, [timeRange, customStart, customEnd, gradeDocs, blockDocs, academicEvents]);
 
   const criticalSubject = useMemo(() => {
-    // Faltas Risk
     let riskSubject = null;
     let highestUsedLimit = 0;
     

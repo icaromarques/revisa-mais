@@ -8,8 +8,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { openMaterial, parseValidDate, safeFormat, formatDuration } from '@/lib/utils';
 import { toast } from '@/lib/toast';
-import { doc, updateDoc, deleteField } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, updateDoc, deleteField } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { getPerformanceClass } from '@/lib/performanceUtils';
 import { cn } from '@/lib/utils';
 

@@ -2,8 +2,11 @@ import { Header } from '@/components/Header';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Clock, CheckCircle, Play, FileText, BrainCircuit, Calendar as CalendarIcon, Plus, X, MoreVertical, Edit2, Trash2, Search, Filter, Video, Link as LinkIcon, File, Download, AlertCircle, Bookmark, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import React, { useState, useEffect, useMemo } from 'react';
-import { doc, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { doc, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, getDocs } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { calendarService } from '@/services/calendarService';
@@ -148,7 +151,7 @@ export function MateriaDetalhe() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await cascadeDeleteService.deleteSessaoAndDerivates(sessao.id, user.uid);
+          await cascadeDeleteService.deleteSessaoAndDerivates(sessao.id, user.id);
           await deleteDoc(doc(db, 'sessoes', sessao.id));
           toast.success("Sessão excluída com sucesso!");
         } catch (error) {
@@ -167,7 +170,7 @@ export function MateriaDetalhe() {
       const collectionsToClear = ['aulas', 'materiais', 'sessoes', 'revisoes', 'resumos', 'decks', 'questoes', 'eventos_academicos'];
       
       for (const collName of collectionsToClear) {
-        const q = query(collection(db, collName), where('user_id', '==', user.uid), where('topico_id', '==', topicoToDelete.id));
+        const q = query(collection(db, collName), where('user_id', '==', user.id), where('topico_id', '==', topicoToDelete.id));
         const snapshots = await getDocs(q);
         snapshots.forEach(snapshot => {
           if (deleteRelated) {
@@ -203,7 +206,7 @@ export function MateriaDetalhe() {
       handleFirestoreError(error, OperationType.GET, `materias/${id}`);
     });
 
-    const qTopicos = query(collection(db, 'topicos'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qTopicos = query(collection(db, 'topicos'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubTopicos = onSnapshot(qTopicos, (snapshot) => {
       const sortedTopicos = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
         const da = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -215,56 +218,56 @@ export function MateriaDetalhe() {
       handleFirestoreError(error, OperationType.LIST, 'topicos');
     });
 
-    const qSessoes = query(collection(db, 'sessoes'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qSessoes = query(collection(db, 'sessoes'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubSessoes = onSnapshot(qSessoes, (snapshot) => {
       setSessoes(snapshot.docs.map(d => integrityService.normalizeSession({ id: d.id, ...d.data() })));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'sessoes');
     });
 
-    const qRevisoes = query(collection(db, 'revisoes'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qRevisoes = query(collection(db, 'revisoes'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubRevisoes = onSnapshot(qRevisoes, (snapshot) => {
       setRevisoes(snapshot.docs.map(d => integrityService.normalizeReview({ id: d.id, ...d.data() })));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'revisoes');
     });
 
-    const qNotas = query(collection(db, 'notas_materia'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qNotas = query(collection(db, 'notas_materia'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubNotas = onSnapshot(qNotas, (snapshot) => {
       setNotas(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'notas_materia');
     });
 
-    const qAulas = query(collection(db, 'aulas'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qAulas = query(collection(db, 'aulas'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubAulas = onSnapshot(qAulas, (snapshot) => {
       setAulas(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'aulas');
     });
 
-    const qMateriais = query(collection(db, 'materiais'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qMateriais = query(collection(db, 'materiais'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubMateriais = onSnapshot(qMateriais, (snapshot) => {
       setMateriais(snapshot.docs.map(d => integrityService.normalizeMaterial({ id: d.id, ...d.data() })));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'materiais');
     });
 
-    const qOcorrencias = query(collection(db, 'ocorrencias_grade'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qOcorrencias = query(collection(db, 'ocorrencias_grade'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubOcorrencias = onSnapshot(qOcorrencias, (snapshot) => {
       setOcorrencias(snapshot.docs.map(d => integrityService.normalizeAbsence({ id: d.id, ...d.data() })));
     }, (error) => {
        handleFirestoreError(error, OperationType.LIST, 'ocorrencias_grade');
     });
 
-    const qGrade = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qGrade = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubGrade = onSnapshot(qGrade, (snapshot) => {
       setGrade(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (error) => {
        handleFirestoreError(error, OperationType.LIST, 'grade_faculdade');
     });
 
-    const unsubEvents = calendarService.subscribeToUserEvents(user.uid, (data) => {
+    const unsubEvents = calendarService.subscribeToUserEvents(user.id, (data) => {
       setEvents(data.filter(e => e.materia_id === id && e.data_inicio && !isNaN(parseValidDate(e.data_inicio).getTime())));
       setLoading(false);
     });
@@ -286,17 +289,17 @@ export function MateriaDetalhe() {
   useEffect(() => {
     if (!user || !id) return;
 
-    const qResumos = query(collection(db, 'resumos'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qResumos = query(collection(db, 'resumos'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubResumos = onSnapshot(qResumos, (snapshot) => {
       setResumos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    const qDecks = query(collection(db, 'decks'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qDecks = query(collection(db, 'decks'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubDecks = onSnapshot(qDecks, (snapshot) => {
       setDecks(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    const qCadernos = query(collection(db, 'cadernos'), where('user_id', '==', user.uid), where('materia_id', '==', id));
+    const qCadernos = query(collection(db, 'cadernos'), where('user_id', '==', user.id), where('materia_id', '==', id));
     const unsubCadernos = onSnapshot(qCadernos, (snapshot) => {
       setCadernos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
@@ -312,9 +315,9 @@ export function MateriaDetalhe() {
     if (!user) return;
     try {
       if (deleteRelated) {
-        await aulaService.deleteAulaCascade(aulaId, user.uid);
+        await aulaService.deleteAulaCascade(aulaId, user.id);
       } else {
-        await aulaService.desvincularAula(aulaId, user.uid);
+        await aulaService.desvincularAula(aulaId, user.id);
       }
       
       toast.success(deleteRelated ? 'Aula e vínculos excluídos!' : 'Aula excluída com sucesso!');
@@ -340,7 +343,7 @@ export function MateriaDetalhe() {
       });
 
       // Update materials
-      const qMateriais = query(collection(db, 'materiais'), where('user_id', '==', user.uid), where('aula_id', '==', aula.id));
+      const qMateriais = query(collection(db, 'materiais'), where('user_id', '==', user.id), where('aula_id', '==', aula.id));
       const matSnaps = await getDocs(qMateriais);
       matSnaps.forEach(matDoc => {
         batch.update(matDoc.ref, {
@@ -353,7 +356,7 @@ export function MateriaDetalhe() {
       if (topicoId) {
         const collectionsToSync = ['revisoes', 'resumos', 'decks', 'cadernos', 'eventos_academicos'];
         for (const coll of collectionsToSync) {
-          const q = query(collection(db, coll), where('user_id', '==', user.uid), where('aula_id', '==', aula.id));
+          const q = query(collection(db, coll), where('user_id', '==', user.id), where('aula_id', '==', aula.id));
           const snaps = await getDocs(q);
           snaps.forEach(d => batch.update(d.ref, { topico_id: topicoId, updated_at: now }));
         }
@@ -396,7 +399,7 @@ export function MateriaDetalhe() {
     setDeletingMaterial(true);
     try {
       const { materialService } = await import('@/services/materialService');
-      await materialService.deleteMaterial(materialToDelete.id, user.uid);
+      await materialService.deleteMaterial(materialToDelete.id, user.id);
       toast.success("Material excluído!");
       setMaterialToDelete(null);
     } catch (error) {
@@ -426,7 +429,7 @@ export function MateriaDetalhe() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await revisaoService.deleteRevisao(revisao.id, user.uid);
+          await revisaoService.deleteRevisao(revisao.id, user.id);
           toast.success("Revisão excluída!");
         } catch (error) {
           console.error(error);

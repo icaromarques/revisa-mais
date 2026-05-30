@@ -1,9 +1,7 @@
 import { Header } from '@/components/Header';
-import { Plus, BookOpen, Clock, ChevronRight, X, Calendar as CalendarIcon, Edit2, Trash2, MoreVertical, Check, Target, Zap, LayoutTemplate, MonitorPlay, AlertCircle } from 'lucide-react';
+import { Plus, BookOpen, Clock, ChevronRight, X, Calendar as CalendarIcon, Edit2, Trash2, MoreVertical, Target, Zap, LayoutTemplate, MonitorPlay, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { calendarService } from '@/services/calendarService';
 import { materiaService } from '@/services/materiaService';
@@ -11,12 +9,12 @@ import { availabilityService } from '@/services/availabilityService';
 import { EventoAcademico } from '@/types/calendar';
 import { CalendarEventModal } from '@/components/CalendarEventModal';
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { toast } from '@/lib/toast';
-import { REVISA_COLORS, getMateriaColor, formatPeriodoLabel, normalizeColorId } from '@/lib/colors';
+import { getMateriaColor, formatPeriodoLabel, normalizeColorId } from '@/lib/colors';
 import { ColorTokenPicker } from '@/components/ColorTokenPicker';
 import { DateInputMasked } from '@/components/ui/DateInputMasked';
 import { calculateSubjectPriority } from '@/utils/priorityCalculator';
+import { apiClient } from '@/lib/api';
 
 export { calculateSubjectPriority };
 
@@ -86,26 +84,34 @@ export function Materias() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, 'materias'), where('user_id', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-      setMaterias(data);
-    });
-
-    const unsubEvents = calendarService.subscribeToUserEvents(user.uid, (data) => {
-      setEvents(data.filter(e => e.data_inicio && !isNaN(new Date(e.data_inicio).getTime())));
-    });
-
-    const qOcorrencias = query(collection(db, 'ocorrencias_grade'), where('user_id', '==', user.uid));
-    const unsubOcorrencias = onSnapshot(qOcorrencias, (snapshot) => {
-      setOcorrencias(snapshot.docs.map(o => ({ id: o.id, ...o.data() })));
-    });
-
+    
+    let isMounted = true;
+    const fetchAll = async () => {
+       try {
+         const [{data: mats}, evts, {data: ocs}] = await Promise.all([
+           apiClient.get('/materias'),
+           calendarService.fetchUserEvents(user.id),
+           apiClient.get('/ocorrencias')
+         ]);
+         
+         if (isMounted) {
+           setMaterias(mats);
+           setEvents(evts.filter(e => e.data_inicio && !isNaN(new Date(e.data_inicio).getTime())));
+           setOcorrencias(ocs);
+         }
+       } catch (error) {
+         console.error("Erro ao carregar dados", error);
+       }
+    };
+    
+    fetchAll();
+    
+    // Provisoriamente polling ou sem realtime até socket
+    const interval = setInterval(fetchAll, 60000);
     return () => {
-      unsubscribe();
-      unsubEvents();
-      unsubOcorrencias();
-    }
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [user]);
 
   const openEditModal = (materia: any) => {
@@ -198,15 +204,16 @@ export function Materias() {
           limite_faltas_percentual: limiteFaltasPercentual === '' ? null : Number(limiteFaltasPercentual),
           revisao_automatica_ativa: revisaoAutomaticaAtiva,
           exibir_no_calendario: exibirNoCalendario,
-          ia_habilitada: iaHabilitada,
-          updated_at: new Date().toISOString()
+          ia_habilitada: iaHabilitada
       };
       
+      let materiaId = editingMateria?.id;
+      
       if (editingMateria) {
-        await updateDoc(doc(db, 'materias', editingMateria.id), payload);
+        await apiClient.put(`/materias/${editingMateria.id}`, payload);
         
-        // Sync downward
-        await availabilityService.syncMateriaGradePeriodo(editingMateria.id, user.uid, {
+        // Sync downward (isso deve idealmente ser feito pelo backend via trigger/controller ao salvar matéria)
+        await availabilityService.syncMateriaGradePeriodo(editingMateria.id, user.id, {
           periodo_inicio: payload.periodo_inicio,
           periodo_fim: payload.periodo_fim,
           tipo_periodo: payload.tipo_periodo,
@@ -215,59 +222,39 @@ export function Materias() {
 
         toast.success("Matéria atualizada com sucesso");
       } else {
-        const hasRetro = retroFaltasOption === 'quantidade' && typeof retroFaltasQuant === 'number' && retroFaltasQuant > 0;
-        
-        const docRef = await addDoc(collection(db, 'materias'), {
-          ...payload,
-          user_id: user.uid,
-          progresso: 0,
-          created_at: new Date().toISOString()
-        });
+        const { data: novaMateria } = await apiClient.post('/materias', payload);
+        materiaId = novaMateria.id;
         
         if (retroFaltasOption === 'quantidade' && typeof retroFaltasQuant === 'number' && retroFaltasQuant > 0) {
-           await addDoc(collection(db, 'ocorrencias_grade'), {
-               user_id: user.uid,
-               materia_id: docRef.id,
+           await apiClient.post('/ocorrencias', {
+               materia_id: materiaId,
                data: payload.periodo_inicio || new Date().toISOString(),
                status: 'falta',
                origem: 'retroativa',
                quantidade_ocorrencias: retroFaltasQuant,
                tipo_falta: 'comum',
                status_reposicao: 'pendente',
-               grade_id: null,
-               observacoes: 'Faltas retroativas informadas no cadastro da matéria',
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
+               observacoes: 'Faltas retroativas informadas no cadastro da matéria'
            });
         } else if (retroFaltasOption === 'detalhado' && retroFaltasLista.length > 0) {
            for (const falta of retroFaltasLista) {
-              await addDoc(collection(db, 'ocorrencias_grade'), {
-                  user_id: user.uid,
-                  materia_id: docRef.id,
+              await apiClient.post('/ocorrencias', {
+                  materia_id: materiaId,
                   data: falta.data || new Date().toISOString(),
                   status: 'falta',
                   origem: 'retroativa',
                   quantidade_ocorrencias: falta.quantidade || 1,
                   tipo_falta: falta.tipo_falta,
                   status_reposicao: falta.status_reposicao,
-                  grade_id: null,
-                  observacoes: falta.observacoes || 'Falta retroativa detalhada',
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
+                  observacoes: falta.observacoes || 'Falta retroativa detalhada'
               });
            }
         }
         
-        if (criarEstruturaInicial) {
-           // We might want to create basic structure here or just rely on the flags 
-           // For now it is just an intent flag, handled in future modules or via cloud functions.
-           // E.g., await addDoc(collection(db, 'topicos'), { materia_id: docRef.id, ... })
-        }
         if (criarGrade) {
            const blockPayload: any = {
-              user_id: user.uid,
               titulo: payload.nome,
-              materia_id: docRef.id,
+              materia_id: materiaId,
               professor: payload.professor,
               hora_inicio: gradeHoraInicio,
               hora_fim: gradeHoraFim,
@@ -295,6 +282,9 @@ export function Materias() {
       }
       setIsModalOpen(false);
       setEditingMateria(null);
+      // Forçar refresh das materias
+      const res = await apiClient.get('/materias');
+      setMaterias(res.data);
     } catch (error) {
       console.error("Erro ao salvar matéria:", error);
       toast.error("Erro ao salvar matéria");
@@ -307,7 +297,7 @@ export function Materias() {
     setOpenMenuId(null);
     if (!user) return;
     try {
-      const { totalCount, counts } = await materiaService.checkDependencies(materia.id, user.uid);
+      const { totalCount, counts } = await materiaService.checkDependencies(materia.id, user.id);
       setDeleteData({ id: materia.id, name: materia.nome, count: totalCount, counts });
     } catch (e) {
       console.error("Erro ao checar dependências", e);
@@ -319,9 +309,12 @@ export function Materias() {
     if (!user || !deleteData) return;
     setDeleting(true);
     try {
-      await materiaService.deleteMateriaCascade(deleteData.id, user.uid);
+      await materiaService.deleteMateriaCascade(deleteData.id, user.id);
       toast.success("Matéria excluída com sucesso");
       setDeleteData(null);
+      // Atualizar interface
+      const res = await apiClient.get('/materias');
+      setMaterias(res.data);
     } catch (error) {
       console.error("Erro ao excluir matéria:", error);
       toast.error("Erro ao excluir matéria");

@@ -1,3 +1,5 @@
+// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
 import { doc, getDoc, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from '@/lib/toast';

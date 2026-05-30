@@ -12,7 +12,7 @@ import {
   writeBatch,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { OcorrenciaGrade, GradeFaculdade, StatusOcorrencia } from '@/types/availability';
 import { format, isSameDay, parseISO } from 'date-fns';
 

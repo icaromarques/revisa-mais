@@ -1,8 +1,11 @@
 import { parseValidDate } from '@/lib/utils';
 import React, { useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
-import { doc, deleteDoc, collection, query, where, getDocs, writeBatch, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { doc, deleteDoc, collection, query, where, getDocs, writeBatch, getDoc } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { OcorrenciaGrade } from '@/types/availability';
 import { toast } from '@/lib/toast';
 import { format,  } from 'date-fns';
@@ -69,7 +72,7 @@ export function ModalExcluirFalta({ isOpen, onClose, faltaToExcluir }: ModalExcl
           // Fallback to checking via queries
           if (!info || (!info.tipo.includes('Aula') && !info.tipo.includes('Sessão'))) {
              const aulasQuery = query(collection(db, 'aulas'), 
-                where('user_id', '==', user.uid),
+                where('user_id', '==', user.id),
                 where('reposicao_ocorrencia_id', '==', faltaToExcluir.id)
              );
              const aulasSnap = await getDocs(aulasQuery);
@@ -117,7 +120,7 @@ export function ModalExcluirFalta({ isOpen, onClose, faltaToExcluir }: ModalExcl
     try {
       // Find aulas that point to this falta
       const aulasQuery = query(collection(db, 'aulas'), 
-         where('user_id', '==', user.uid),
+         where('user_id', '==', user.id),
          where('reposicao_ocorrencia_id', '==', faltaToExcluir.id)
       );
       const aulasSnap = await getDocs(aulasQuery);
@@ -162,22 +165,22 @@ export function ModalExcluirFalta({ isOpen, onClose, faltaToExcluir }: ModalExcl
           await deleteDoc(doc(db, 'ocorrencias_grade', faltaToExcluir.id));
           
           if (faltaToExcluir.reposicao_aula_id) {
-             await cascadeDeleteService.deleteAulaAndDerivates(faltaToExcluir.reposicao_aula_id, user.uid);
+             await cascadeDeleteService.deleteAulaAndDerivates(faltaToExcluir.reposicao_aula_id, user.id);
              await deleteDoc(doc(db, 'aulas', faltaToExcluir.reposicao_aula_id));
           }
           if (faltaToExcluir.reposicao_sessao_id) {
-             await cascadeDeleteService.deleteSessaoAndDerivates(faltaToExcluir.reposicao_sessao_id, user.uid);
+             await cascadeDeleteService.deleteSessaoAndDerivates(faltaToExcluir.reposicao_sessao_id, user.id);
              await deleteDoc(doc(db, 'sessoes', faltaToExcluir.reposicao_sessao_id));
           }
           
           // Also explicitly delete any aula that points to this via reposicao_ocorrencia_id just to be safe
           const aulasQuery = query(collection(db, 'aulas'), 
-            where('user_id', '==', user.uid),
+            where('user_id', '==', user.id),
             where('reposicao_ocorrencia_id', '==', faltaToExcluir.id)
           );
           const aulasSnap = await getDocs(aulasQuery);
           for (let aulaDoc of aulasSnap.docs) {
-             await cascadeDeleteService.deleteAulaAndDerivates(aulaDoc.id, user.uid);
+             await cascadeDeleteService.deleteAulaAndDerivates(aulaDoc.id, user.id);
              await deleteDoc(aulaDoc.ref);
           }
           

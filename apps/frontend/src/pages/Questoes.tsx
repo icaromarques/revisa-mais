@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Target, Filter, Plus, Edit2, Trash2, Search, BookOpen } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy } from 'firebase/firestore';
+// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
+// Atualmente ela ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy } from 'firebase/firestore'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { toast } from '@/lib/toast';
@@ -30,7 +33,7 @@ export function Questoes() {
     if (!user) return;
     const q = query(
       collection(db, 'cadernos'),
-      where('user_id', '==', user.uid),
+      where('user_id', '==', user.id),
       orderBy('created_at', 'desc')
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -68,7 +71,7 @@ export function Questoes() {
         toast.success('Caderno atualizado!');
       } else {
         await addDoc(collection(db, 'cadernos'), {
-          user_id: user.uid,
+          user_id: user.id,
           nome: form.nome,
           descricao: form.descricao,
           questoes_count: 0,
@@ -94,7 +97,7 @@ export function Questoes() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await cascadeDeleteService.deleteCadernoAndDerivates(id, user.uid);
+          await cascadeDeleteService.deleteCadernoAndDerivates(id, user.id);
           await deleteDoc(doc(db, 'cadernos', id));
           toast.success('Caderno excluído!');
         } catch (err) {

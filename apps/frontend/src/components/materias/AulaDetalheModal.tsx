@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { X, Edit2, BrainCircuit, AlertCircle, FileText, Video, File, Link as LinkIcon, Clock, Play, CheckCircle, CalendarIcon, Bookmark, Trash2, Mic, Image as ImageIcon } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { db } from '@/lib/firebase'; // TODO: Refatorar no próximo passo
 import { parseValidDate, safeFormat, formatDuration } from '@/lib/utils';
-import { addDoc, collection, updateDoc, doc } from 'firebase/firestore';
+import { addDoc, collection, updateDoc, doc } from 'firebase/firestore'; // TODO: Refatorar no próximo passo
+import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 import { openMaterial } from '@/lib/utils';
@@ -51,7 +54,7 @@ export function AulaDetalheModal({
     setIsScheduling(true);
     try {
       const newEventRef = await addDoc(collection(db, 'eventos_academicos'), {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         tipo: 'prova',
@@ -80,7 +83,7 @@ export function AulaDetalheModal({
     setIsGenerating(true);
     try {
       await addDoc(collection(db, 'resumos'), {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,
@@ -103,7 +106,7 @@ export function AulaDetalheModal({
     setIsGenerating(true);
     try {
       const deckRef = await addDoc(collection(db, 'decks'), {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,
@@ -114,7 +117,7 @@ export function AulaDetalheModal({
       });
 
       await addDoc(collection(db, 'flashcards'), {
-        user_id: user.uid,
+        user_id: user.id,
         deck_id: deckRef.id,
         frente: 'Qual é o principal conceito desta aula?',
         verso: aula.resumo_rapido || 'Rever o material da aula.',
@@ -134,7 +137,7 @@ export function AulaDetalheModal({
     setIsGenerating(true);
     try {
       await addDoc(collection(db, 'questoes'), {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,
@@ -158,7 +161,7 @@ export function AulaDetalheModal({
     setIsScheduling(true);
     try {
       await addDoc(collection(db, 'revisoes'), {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,
@@ -182,7 +185,7 @@ export function AulaDetalheModal({
     setIsScheduling(true);
     try {
       await addDoc(collection(db, 'eventos_academicos'), {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,

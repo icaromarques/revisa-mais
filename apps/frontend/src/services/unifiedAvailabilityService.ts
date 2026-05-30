@@ -1,4 +1,6 @@
 import { GradeFaculdade, BloqueioAgenda } from '@/types/availability';
+// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { isSameDay, addMinutes, isBefore, isAfter, startOfDay, endOfDay, getDay, addDays } from 'date-fns';

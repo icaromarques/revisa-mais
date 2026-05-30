@@ -34,7 +34,7 @@ export function GradeList({ grade, materias = [], onEdit }: Props) {
       onConfirm: async () => {
         if (!user) return;
         try {
-          await availabilityService.deleteGradeFaculdade(id, user.uid);
+          await availabilityService.deleteGradeFaculdade(id, user.id);
           toast.success("Horário excluído!");
         } catch (error) {
           toast.error("Erro ao excluir horário.");

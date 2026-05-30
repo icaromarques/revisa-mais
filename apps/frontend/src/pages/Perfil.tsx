@@ -48,7 +48,7 @@ export function Perfil() {
   useEffect(() => {
     if (!user) return;
 
-    const unsub = userProfileService.subscribe(user.uid, (data) => {
+    const unsub = userProfileService.subscribe(user.id, (data) => {
       setProfile(data);
       if (data) {
         setEditNome(data.nome || '');
@@ -60,7 +60,7 @@ export function Perfil() {
       setLoading(false);
     });
 
-    profileAnalyticsService.compute(user.uid).then(stats => {
+    profileAnalyticsService.compute(user.id).then(stats => {
       setAnalytics(stats);
     });
 
@@ -71,7 +71,7 @@ export function Perfil() {
     if (!user) return;
     setSaving(true);
     try {
-      await userProfileService.updateProfile(user.uid, {
+      await userProfileService.updateProfile(user.id, {
         nome: editNome,
         instituicao: editInstituicao,
         curso: editCurso,
@@ -190,7 +190,7 @@ export function Perfil() {
      }
 
      try {
-       await userProfileService.addGoal(user.uid, {
+       await userProfileService.addGoal(user.id, {
           title: newGoal.title.trim(),
           category: newGoal.category,
           tracking_mode: newGoal.tracking_mode,
@@ -215,7 +215,7 @@ export function Perfil() {
   const handleDeleteGoal = async (id: string) => {
      if (!user) return;
      try {
-       await userProfileService.deleteGoal(user.uid, id);
+       await userProfileService.deleteGoal(user.id, id);
        toast.success('Meta removida');
      } catch(e) {
        toast.error('Erro ao remover');
@@ -226,7 +226,7 @@ export function Perfil() {
      if (!user) return;
      try {
        const newStatus = currentStatus === 'completed' ? 'active' : 'completed';
-       await userProfileService.updateGoal(user.uid, id, { status: newStatus });
+       await userProfileService.updateGoal(user.id, id, { status: newStatus });
        toast.success(newStatus === 'completed' ? 'Parabéns! Meta concluída.' : 'Meta reativada.');
      } catch(e) {
        toast.error('Erro ao atualizar meta');

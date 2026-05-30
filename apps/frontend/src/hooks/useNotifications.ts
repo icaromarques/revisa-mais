@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppNotification } from '@/types/notifications';
-import { notificationService } from '@/services/notificationService';
+import { notificationService } from '@/services/notificationService'; // Vamos refatorar esse arquivo também a seguir
+import { apiClient } from '@/lib/api';
 
 export function useNotifications() {
   const { user } = useAuth();
@@ -15,22 +16,53 @@ export function useNotifications() {
       return;
     }
 
-    // Run system sync
-    notificationService.syncNotificationsFromModules(user.uid);
+    let isMounted = true;
 
-    // Subscribe to live updates
-    const unsubscribe = notificationService.subscribeToUnread(user.uid, (data) => {
-      setNotifications(data);
-      setLoading(false);
-    });
+    const fetchNotifications = async () => {
+      try {
+        const { data } = await apiClient.get('/notificacoes');
+        if (isMounted) {
+            setNotifications(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch notifications", err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
 
-    return () => unsubscribe();
+    fetchNotifications();
+
+    // Como removemos onSnapshot, deveríamos fazer um polling aqui provisoriamente
+    // até termos websockets
+    const interval = setInterval(fetchNotifications, 60000); // Poll a cada minuto
+
+    return () => {
+        isMounted = false;
+        clearInterval(interval);
+    };
   }, [user]);
 
-  const markAsRead = (id: string) => notificationService.markAsRead(id);
-  const markAllAsRead = () => user && notificationService.markAllAsRead(user.uid);
-  const removeNotification = (id: string) => notificationService.deleteNotification(id);
-  const archiveNotification = (id: string) => notificationService.archiveNotification(id);
+  // Usaremos chamadas diretas ao serviço agora (que também deve ser refatorado)
+  const markAsRead = async (id: string) => {
+     await apiClient.patch(`/notificacoes/${id}/read`);
+     setNotifications(prev => prev.map(n => n.id === id ? { ...n, status: 'lida' } : n));
+  };
+  
+  const markAllAsRead = async () => {
+     await apiClient.post('/notificacoes/mark-all-read');
+     setNotifications(prev => prev.map(n => ({ ...n, status: 'lida' })));
+  };
+  
+  const removeNotification = async (id: string) => {
+     await apiClient.delete(`/notificacoes/${id}`);
+     setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const archiveNotification = async (id: string) => {
+     await apiClient.patch(`/notificacoes/${id}/archive`);
+     setNotifications(prev => prev.map(n => n.id === id ? { ...n, status: 'arquivada' } : n));
+  };
 
   return {
     notifications,

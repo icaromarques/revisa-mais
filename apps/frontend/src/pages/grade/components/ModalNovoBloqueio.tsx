@@ -69,7 +69,7 @@ export function ModalNovoBloqueio({ onClose, bloqueioToEdit }: Props) {
       const payload: any = {
         ...form,
         cor: normalizeColorId(form.cor),
-        user_id: user.uid,
+        user_id: user.id,
         titulo: form.titulo!,
         tipo: form.tipo || 'bloqueio',
         categoria: form.categoria!,

@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { userPreferencesService } from '@/services/userPreferencesService';
 import { UserPreferences, DEFAULT_PREFERENCES } from '@/types/preferences';
-import { collection, onSnapshot, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { apiClient } from '@/lib/api';
 
 export function usePreferences() {
   const { user } = useAuth();
@@ -16,23 +14,31 @@ export function usePreferences() {
       return;
     }
 
-    const docRef = doc(db, 'preferencias_usuario', user.uid);
-    const unsubscribe = onSnapshot(docRef, (snap) => {
-      if (snap.exists()) {
-        userPreferencesService.getPreferences(user.uid).then(prefs => {
-          setPreferences(prefs);
-          setLoading(false);
-        });
-      } else {
-        setPreferences(DEFAULT_PREFERENCES as UserPreferences);
-        setLoading(false);
-      }
-    }, (err) => {
-      console.error("Error reading preferences:", err);
-      setLoading(false);
-    });
+    let isMounted = true;
+    setLoading(true);
 
-    return () => unsubscribe();
+    const fetchPreferences = async () => {
+      try {
+        const { data } = await apiClient.get('/usuarios/preferencias'); // Idealmente uma rota que retorne prefs
+        if (isMounted) {
+          setPreferences({ ...DEFAULT_PREFERENCES, ...data });
+        }
+      } catch (err) {
+        console.error("Error reading preferences via API:", err);
+        // Fallback to default
+        if (isMounted) {
+            setPreferences(DEFAULT_PREFERENCES as UserPreferences);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchPreferences();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   return { preferences, loading };

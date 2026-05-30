@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { GradeFaculdade } from '@/types/availability';
 import { useAuth } from '@/contexts/AuthContext';
 import { availabilityService } from '@/services/availabilityService';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { apiClient } from '@/lib/api';
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore'; // TODO: Refatorar no próximo passo
+import { db } from '@/lib/firebase'; // TODO: Refatorar no próximo passo
 import { X } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -74,7 +75,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
     }
     
     if (user) {
-      getDocs(query(collection(db, 'materias'), where('user_id', '==', user.uid)))
+      getDocs(query(collection(db, 'materias'), where('user_id', '==', user.id)))
         .then(snap => {
            setMaterias(snap.docs.map(d => ({
              id: d.id, 
@@ -146,7 +147,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
              meta_semanal_horas: newMateria.meta_semanal_horas ? Number(newMateria.meta_semanal_horas) : null,
              prioridade: newMateria.prioridade,
              peso_importancia: newMateria.peso_importancia,
-             user_id: user.uid,
+             user_id: user.id,
              progresso: 0,
              status: 'em_andamento',
              faltas: 0,
@@ -160,7 +161,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
          
          if (retroFaltasOption === 'quantidade' && retroFaltasQuant > 0) {
             await addDoc(collection(db, 'ocorrencias_grade'), {
-               user_id: user.uid,
+               user_id: user.id,
                materia_id: docRef.id,
                grade_id: null,
                data: newMateria.periodo_inicio || new Date().toISOString(),
@@ -176,7 +177,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
          } else if (retroFaltasOption === 'detalhado' && retroFaltasLista.length > 0) {
             for (const falta of retroFaltasLista) {
                await addDoc(collection(db, 'ocorrencias_grade'), {
-                  user_id: user.uid,
+                  user_id: user.id,
                   materia_id: docRef.id,
                   data: falta.data || new Date().toISOString(),
                   status: 'falta',
@@ -196,7 +197,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
       const payload: any = {
         ...form,
         cor: form.cor ? normalizeColorId(form.cor) : null,
-        user_id: user.uid,
+        user_id: user.id,
         titulo: form.titulo!,
         hora_inicio: form.hora_inicio!,
         hora_fim: form.hora_fim!,
@@ -731,7 +732,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
                       console.log('[Excluir Horário] Iniciando exclusão sem matéria vinculada', { id: horarioToEdit.id });
                       try {
                         if (!horarioToEdit.id) throw new Error('ID do horário não encontrado');
-                        await availabilityService.deleteGradeFaculdade(horarioToEdit.id, user.uid);
+                        await availabilityService.deleteGradeFaculdade(horarioToEdit.id, user.id);
                         toast.success('Horário removido com sucesso');
                         onClose();
                       } catch (e: any) {
@@ -794,7 +795,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
                   setLoading(true);
                   console.log('[Excluir Horário] Opção 1: Apenas este horário', { id: horarioToEdit?.id, materia_id: form.materia_id });
                   try {
-                    await availabilityService.deleteGradeFaculdade(horarioToEdit!.id!, user.uid);
+                    await availabilityService.deleteGradeFaculdade(horarioToEdit!.id!, user.id);
                     toast.success('Horário excluído da grade');
                     setDeletingMode(false);
                     onClose();
@@ -817,10 +818,10 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
                   console.log('[Excluir Horário] Opção 2: Todos os horários da matéria', { materia_id: form.materia_id });
                   try {
                     // Remover TODOS com essa materia_id
-                    const qAll = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.uid), where('materia_id', '==', form.materia_id));
+                    const qAll = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.id), where('materia_id', '==', form.materia_id));
                     const snap = await getDocs(qAll);
                     console.log(`[Excluir Horário] Encontrados ${snap.docs.length} horários para a matéria ${form.materia_id}`);
-                    await Promise.all(snap.docs.map(d => availabilityService.deleteGradeFaculdade(d.id, user.uid)));
+                    await Promise.all(snap.docs.map(d => availabilityService.deleteGradeFaculdade(d.id, user.id)));
                     toast.success('Todos os horários da grade foram removidos.');
                     setDeletingMode(false);
                     onClose();
@@ -843,7 +844,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
                   console.log('[Excluir Horário] Opção 3: Excluir e concluir matéria', { id: horarioToEdit?.id, materia_id: form.materia_id });
                   try {
                     // Deletar o horário atual
-                    await availabilityService.deleteGradeFaculdade(horarioToEdit!.id!, user.uid);
+                    await availabilityService.deleteGradeFaculdade(horarioToEdit!.id!, user.id);
                     // Atualizar materia para status concluída
                     await updateDoc(doc(db, 'materias', form.materia_id!), { status: 'concluida' });
                     toast.success('Horário removido e matéria concluída!');

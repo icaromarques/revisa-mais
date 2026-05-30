@@ -6,8 +6,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { calendarService } from '@/services/calendarService';
 import { googleCalendarService } from '@/services/googleCalendar';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'; // TODO: Refatorar
+import { db } from '@/lib/firebase'; // TODO: Refatorar
+import { apiClient } from '@/lib/api';
 import { useRestWindow } from '@/hooks/useRestWindow';
 import { parseValidDate } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -67,11 +70,11 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
     async function fetchData() {
       if (!user) return;
       try {
-        const mQuery = query(collection(db, 'materias'), where('user_id', '==', user.uid));
+        const mQuery = query(collection(db, 'materias'), where('user_id', '==', user.id));
         const mSnap = await getDocs(mQuery);
         setMaterias(mSnap.docs.map(d => ({id: d.id, ...d.data()})));
         
-        const tQuery = query(collection(db, 'topicos'), where('user_id', '==', user.uid));
+        const tQuery = query(collection(db, 'topicos'), where('user_id', '==', user.id));
         const tSnap = await getDocs(tQuery);
         setTopicos(tSnap.docs.map(d => ({id: d.id, ...d.data()})));
 
@@ -80,7 +83,7 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
 
         if (!eventToEdit && initialData?.sync_enabled === undefined) {
            const { userPreferencesService } = await import('@/services/userPreferencesService');
-           const prefs = await userPreferencesService.getPreferences(user.uid);
+           const prefs = await userPreferencesService.getPreferences(user.id);
            const defaultSync = prefs?.googleCalendar?.syncManualEventsByDefault;
            if (defaultSync !== undefined) {
                setSyncGoogle(defaultSync && isConn);
@@ -162,7 +165,7 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
         // Fetch smart schedule
         if (user) {
           import('@/services/smartScheduleService').then(({ smartScheduleService }) => {
-             smartScheduleService.findNextBestSlot(user.uid, now, 60).then(slot => {
+             smartScheduleService.findNextBestSlot(user.id, now, 60).then(slot => {
                 if (slot) {
                   setDataInicio(getLocalDateString(slot.start));
                   setHoraInicio(slot.start.toTimeString().slice(0, 5));
@@ -194,7 +197,7 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
     const proceedSave = async () => {
       try {
         const eventData: any = {
-          user_id: user.uid,
+          user_id: user.id,
           titulo,
           descricao,
           tipo,
@@ -219,7 +222,7 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
           const docId = await calendarService.createEvent(eventData);
           if (syncGoogle) {
               try {
-                  await calendarService.syncLocalEventToGoogle(docId, user.uid);
+                  await calendarService.syncLocalEventToGoogle(docId, user.id);
               } catch (e: any) {
                   console.error("GCal Sync Error on Create", e);
                   toast.error(e.message?.includes('expirou') ? "Evento salvo localmente, mas conexão GCal expirou. Reconecte nas Configurações." : "Evento salvo no Revisa+, mas não foi possível sincronizar com Google Calendar.");
@@ -229,7 +232,7 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
           await calendarService.updateEvent(eventToEdit.id!, eventData);
           if (syncGoogle) {
               try {
-                  await calendarService.syncLocalEventToGoogle(eventToEdit.id!, user.uid);
+                  await calendarService.syncLocalEventToGoogle(eventToEdit.id!, user.id);
               } catch (e: any) {
                   console.error("GCal Sync Error on Update", e);
                   toast.error(e.message?.includes('expirou') ? "Evento atualizado localmente, mas conexão GCal expirou. Reconecte nas Configurações." : "Evento salvo no Revisa+, mas não foi possível sincronizar com Google Calendar.");
@@ -250,7 +253,7 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
         const startDt = parseValidDate(startIso);
         const endDt = parseValidDate(endIso);
         const { unifiedAvailabilityService } = await import('@/services/unifiedAvailabilityService');
-        const conflictData = await unifiedAvailabilityService.checkScheduleConflict(user.uid, startDt, endDt, eventToEdit?.id);
+        const conflictData = await unifiedAvailabilityService.checkScheduleConflict(user.id, startDt, endDt, eventToEdit?.id);
 
         if (conflictData.hasConflict) {
             setIsSaving(false); 

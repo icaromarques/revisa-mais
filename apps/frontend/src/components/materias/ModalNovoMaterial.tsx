@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileText, Link as LinkIcon, Video, File, Globe, Book, MessageSquare, Save, Mic, Image as ImageIcon, FileArchive, Info, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { db } from '@/lib/firebase';
-import { getDocs, query, collection, where } from 'firebase/firestore';
+// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
+// Atualmente ele ainda usa firebase/firestore diretamente.
+import { apiClient } from '@/lib/api';
+import { db } from '@/lib/firebase'; // TODO: Refatorar no próximo passo
+import { getDocs, query, collection, where } from 'firebase/firestore'; // TODO: Refatorar no próximo passo
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { materialService } from '@/services/materialService';
@@ -66,7 +69,7 @@ export function ModalNovoMaterial({
       try {
         const q = query(
           collection(db, 'sessoes'), 
-          where('user_id', '==', user.uid),
+          where('user_id', '==', user.id),
           where('materia_id', '==', materiaId)
         );
         const snap = await getDocs(q);
@@ -128,7 +131,7 @@ export function ModalNovoMaterial({
 
     try {
       const payload: any = {
-        user_id: user.uid,
+        user_id: user.id,
         materia_id: materiaId,
         titulo: form.titulo,
         tipo: form.tipo,

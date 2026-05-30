@@ -4,13 +4,11 @@ import { usePreferences } from '@/hooks/usePreferences';
 import { X, Book, FileText, Clock, Save, CheckCircle2, ChevronDown, Plus, Zap, LinkIcon, ExternalLink, Edit2, Star, Trash2 } from 'lucide-react';
 import { cn, parseValidDate } from '@/lib/utils';
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, addDoc, query, where, getDocs, onSnapshot, serverTimestamp, setDoc, doc, orderBy, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { EventoAcademicoTipo } from '@/types/calendar';
 import { format } from 'date-fns';
 import { toast } from '@/lib/toast';
-import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';
 import { getPerformanceClass, PerformanceLevel } from '@/lib/performanceUtils';
+import { apiClient } from '@/lib/api';
 
 import { ModalNovoMaterial } from '@/components/materias/ModalNovoMaterial';
 
@@ -75,13 +73,12 @@ export function SessionModal() {
        setRealTimeSession(null);
        return;
     }
-    const { onSnapshot, doc } = require('firebase/firestore');
-    const unsub = onSnapshot(doc(db, 'sessoes', modalData.id), (docSnap: any) => {
-       if (docSnap.exists()) {
-          setRealTimeSession({ id: docSnap.id, ...docSnap.data() });
-       }
-    });
-    return () => unsub();
+    
+    // Provisoriamente uma chamada GET
+    apiClient.get(`/sessoes/${modalData.id}`).then(({ data }) => {
+        setRealTimeSession(data);
+    }).catch(console.error);
+
   }, [isOpen, user, modalData?.id, modalData?.modo]);
 
   // Initial data from context (Pomodoro or predefined links)
@@ -159,59 +156,42 @@ export function SessionModal() {
   useEffect(() => {
     if (!user || !isOpen) return;
 
-    // Faltas Pendentes
-    const unsubFaltas = onSnapshot(query(
-      collection(db, 'ocorrencias_grade'), 
-      where('user_id', '==', user.uid),
-      where('falta', '==', true),
-      where('conteudo_recuperado', '==', false) // Not strictly enforced in all older scripts so we might filter in memory
-    ), (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setFaltasPendentes(docs.filter((d:any) => !d.conteudo_recuperado));
-    });
-
-    // Revisões Pendentes
-    const unsubRevisoes = onSnapshot(query(
-      collection(db, 'revisoes'),
-      where('user_id', '==', user.uid),
-      where('status', '==', 'pendente')
-    ), (snap) => {
-      setRevisoesPendentes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    // Materiais (Optional: filter by selected materia later, but fetch all for now or when materia selected)
-    const unsubMateriais = onSnapshot(query(
-      collection(db, 'materiais'),
-      where('user_id', '==', user.uid)
-    ), (snap) => {
-      setMateriais(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    return () => {
-      unsubFaltas();
-      unsubRevisoes();
-      unsubMateriais();
-    }
+    let isMounted = true;
+    
+    const fetchRelations = async () => {
+      try {
+        const [
+           { data: ocs },
+           { data: revs },
+           { data: mats }
+        ] = await Promise.all([
+           apiClient.get('/ocorrencias'),
+           apiClient.get('/revisoes', { params: { status: 'pendente' } }),
+           apiClient.get('/materiais')
+        ]);
+        
+        if (isMounted) {
+           setFaltasPendentes(ocs.filter((d:any) => d.status === 'falta' && !d.conteudo_recuperado));
+           setRevisoesPendentes(revs);
+           setMateriais(mats);
+        }
+      } catch (e) {
+         console.error("Erro ao buscar relações para modal", e);
+      }
+    };
+    
+    fetchRelations();
+    
+    return () => { isMounted = false; };
   }, [user, isOpen]);
 
   // Fetch materias
   useEffect(() => {
     if (!user || !isOpen) return;
 
-    const q = query(collection(db, 'materias'), where('user_id', '==', user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const materiasData = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        nome: docSnap.data().nome,
-        cor: docSnap.data().cor,
-        professor: docSnap.data().professor || ''
-      }));
-      setMaterias(materiasData);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'materias');
-    });
-
-    return () => unsubscribe();
+    apiClient.get('/materias').then(({ data }) => {
+       setMaterias(data);
+    }).catch(console.error);
   }, [user, isOpen]);
 
   // Fetch topicos and aulas when materia changes
@@ -222,42 +202,14 @@ export function SessionModal() {
       return;
     }
 
-    const qTopicos = query(
-      collection(db, 'topicos'), 
-      where('user_id', '==', user.uid),
-      where('materia_id', '==', selectedMateria)
-    );
+    apiClient.get(`/topicos/materia/${selectedMateria}`).then(({ data }) => {
+       setTopicos(data);
+    }).catch(console.error);
     
-    const unsubscribeTopicos = onSnapshot(qTopicos, (snapshot) => {
-      const topicosData = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        nome: docSnap.data().nome
-      }));
-      setTopicos(topicosData);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'topicos');
-    });
+    apiClient.get(`/materias/${selectedMateria}/aulas`).then(({ data }) => {
+       setAulas(data);
+    }).catch(console.error);
 
-    const qAulas = query(
-      collection(db, 'aulas'), 
-      where('user_id', '==', user.uid),
-      where('materia_id', '==', selectedMateria)
-    );
-    
-    const unsubscribeAulas = onSnapshot(qAulas, (snapshot) => {
-      const aulasData = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        titulo: docSnap.data().titulo
-      }));
-      setAulas(aulasData);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'aulas');
-    });
-
-    return () => {
-      unsubscribeTopicos();
-      unsubscribeAulas();
-    };
   }, [user, selectedMateria]);
 
   // Fetch nearby exams for pre-prova suggestion
@@ -271,18 +223,10 @@ export function SessionModal() {
     const futureLimit = new Date(today);
     futureLimit.setDate(futureLimit.getDate() + 30); // Look 30 days ahead
 
-    const q = query(
-      collection(db, 'eventos_academicos'),
-      where('user_id', '==', user.uid),
-      where('materia_id', '==', selectedMateria),
-      where('concluido', '==', false)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const exams = snapshot.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+    apiClient.get(`/eventos`, { params: { materiaId: selectedMateria } }).then(({ data }) => {
+       const exams = data
         .filter((e: any) => {
-          if (!e.data_inicio) return false;
+          if (!e.data_inicio || e.concluido) return false;
           const examDate = new Date(e.data_inicio);
           return ['prova', 'exame', 'avaliacao', 'trabalho'].includes(e.tipo) && 
                  examDate >= today && 
@@ -291,11 +235,8 @@ export function SessionModal() {
         .sort((a: any, b: any) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime());
 
       setNearbyExam(exams[0] || null);
-    }, (err) => {
-      handleFirestoreError(err, OperationType.LIST, 'eventos_academicos');
-    });
+    }).catch(console.error);
 
-    return () => unsubscribe();
   }, [user, selectedMateria, dataRegistro, isOpen]);
 
   // Fetch last session performance for topic
@@ -305,50 +246,40 @@ export function SessionModal() {
       return;
     }
 
-    const q = query(
-      collection(db, 'sessoes'),
-      where('user_id', '==', user.uid),
-      where('topico_id', '==', selectedTopico),
-      orderBy('created_at', 'desc'),
-      limit(1)
-    );
-
-    getDocs(q).then(snap => {
-      if (!snap.empty) {
-        const data = snap.docs[0].data();
-        const total = data.total_questoes || 0;
-        const hits = data.acertos || 0;
-        const diff = data.dificuldade || 3;
-        const perf = total > 0 ? (hits / total) : 0;
-        
-        if (perf >= 0.8 && diff <= 3) setLastSessionPerf('high');
-        else if (perf < 0.6 || diff >= 4) setLastSessionPerf('low');
-        else setLastSessionPerf(null);
-      } else {
-        setLastSessionPerf(null);
-      }
-    }).catch(e => console.error("Error fetching last session:", e));
+    apiClient.get(`/sessoes/historico`, { params: { topicoId: selectedTopico, limit: 1 } }).then(({ data }) => {
+       if (data && data.length > 0) {
+         const sessao = data[0];
+         const total = sessao.total_questoes || 0;
+         const hits = sessao.acertos || 0;
+         const diff = sessao.dificuldade || 3;
+         const perf = total > 0 ? (hits / total) : 0;
+         
+         if (perf >= 0.8 && diff <= 3) setLastSessionPerf('high');
+         else if (perf < 0.6 || diff >= 4) setLastSessionPerf('low');
+         else setLastSessionPerf(null);
+       } else {
+         setLastSessionPerf(null);
+       }
+    }).catch(console.error);
   }, [user, selectedTopico, isOpen]);
 
   // Fetch user settings for intelligent revisions
   useEffect(() => {
     if (!user || !isOpen) return;
-    const unsub = onSnapshot(doc(db, 'users', user.uid), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setUserSettings(data.settings);
-        
-        // Auto-apply logic if configured
-        if (data.settings?.intelligentRevision?.active && data.settings?.intelligentRevision?.mode === 'auto') {
-          const suggestion = calculateIntelligentSuggestion(data.settings?.intelligentRevision?.sensitivity || 'balanced');
-          if (suggestion.intervals.length > 0) {
-            setSelectedIntervals(suggestion.intervals);
-            setPreset('personalizada');
-          }
+    // Assume we can fetch user settings from auth profile or specific endpoint
+    apiClient.get('/usuarios/perfil').then(({ data }) => {
+        if (data && data.settings) {
+            setUserSettings(data.settings);
+            // Auto-apply logic if configured
+            if (data.settings.intelligentRevision?.active && data.settings.intelligentRevision?.mode === 'auto') {
+              const suggestion = calculateIntelligentSuggestion(data.settings.intelligentRevision?.sensitivity || 'balanced');
+              if (suggestion.intervals.length > 0) {
+                setSelectedIntervals(suggestion.intervals);
+                setPreset('personalizada');
+              }
+            }
         }
-      }
-    });
-    return () => unsub();
+    }).catch(console.error);
   }, [user, isOpen]);
 
   const calculateIntelligentSuggestion = (sensitivity: string = 'balanced') => {
@@ -497,8 +428,6 @@ export function SessionModal() {
       const minutos = totalSeconds / 60;
 
       const isEdit = modalData?.modo === 'edit' && !!modalData.id;
-      const sessaoRef = isEdit ? doc(db, 'sessoes', modalData.id!) : doc(collection(db, 'sessoes'));
-      const sessaoId = sessaoRef.id;
 
       let topicoId = selectedTopico;
       let finalMaterialId = outputDestino === 'material_existente' ? materialVinculadoId : null;
@@ -509,15 +438,12 @@ export function SessionModal() {
         if (existing) {
           topicoId = existing.id;
         } else {
-          const topicoRef = await addDoc(collection(db, 'topicos'), {
-            user_id: user.uid,
+          const { data } = await apiClient.post('/topicos', {
             materia_id: selectedMateria,
             nome: newTopico.trim(),
-            status_dominio: 'estudando',
-            created_at: serverTimestamp(),
-            updated_at: serverTimestamp(),
+            status: 'estudando',
           });
-          topicoId = topicoRef.id;
+          topicoId = data.id;
         }
       }
       
@@ -544,7 +470,7 @@ export function SessionModal() {
         }
 
         const payload: any = {
-          user_id: user.uid,
+          user_id: user.id,
           materia_id: selectedMateria,
           topico_id: topicoId || null,
           aula_id: novoMaterialAulaId || null,
@@ -643,34 +569,32 @@ export function SessionModal() {
       const origemReal = modalData?.origem || (modalData?.modo === 'pomodoro' ? 'pomodoro' : 'manual');
 
       const sessaoData: any = {
-        user_id: user.uid,
         materia_id: selectedMateria,
         topico_id: topicoId || null,
         titulo: finalTituloSessao,
-        tipo: tipoSessao, // Using the new explicit explicit type rather than just 'manual'
+        tipo: tipoSessao, 
         origem_sessao: origemReal,
-        tempo_estudado_hhmmss: tempo,
         tempo_estudado_segundos: totalSeconds,
-        tempo_estudado_minutos: minutos,
-        data_registro: dataRegistro,
         dificuldade: difficulty,
         professor: professor || null,
         total_questoes: totalQ,
         acertos: acerts,
         notas: notas,
-        metadata: modalData?.metadata || null,
-        updated_at: serverTimestamp(),
         ...extraFields
       };
 
-      if (isEdit) {
-        await setDoc(sessaoRef, sessaoData, { merge: true });
-      } else {
-        sessaoData.created_at = serverTimestamp();
-        await setDoc(sessaoRef, sessaoData);
-      }
+      let finalSessaoId = isEdit ? modalData.id : null;
 
-      // Handle Linked entities consequences (Update Revision / Faltas)
+      if (isEdit) {
+        await apiClient.put(`/sessoes/${modalData.id}`, sessaoData);
+      } else {
+        const { data } = await apiClient.post('/sessoes/registrar', sessaoData);
+        finalSessaoId = data.id;
+      }
+      
+      const sessaoId = finalSessaoId;
+
+      // ... then Handle Linked entities consequences (Update Revision / Faltas)
       if (tipoSessao === 'revisao' && revisaoVinculadaId) {
         const { revisaoService } = await import('@/services/revisaoService');
         const activeRevisao = revisoesPendentes.find(r => r.id === revisaoVinculadaId);
@@ -687,12 +611,7 @@ export function SessionModal() {
       if (tipoSessao === 'recuperacao_de_conteudo' && faltaVinculadaId) {
          try {
            const { gradeOccurrenceService } = await import('@/services/gradeOccurrenceService');
-           // In future we might use a dedicated update logic but for now simple setDoc merge or updateOccurrence
-           await setDoc(doc(db, 'ocorrencias_grade', faltaVinculadaId), {
-             conteudo_recuperado: true,
-             recuperado_em: dataRegistro + 'T00:00:00.000Z',
-             sessao_recuperacao_id: sessaoId
-           }, { merge: true });
+           await gradeOccurrenceService.confirmOccurrence(faltaVinculadaId, 'conteudo_recuperado', sessaoId);
          } catch (e) { console.error("Erro ao vincular falta:", e); }
       }
 
@@ -709,7 +628,6 @@ export function SessionModal() {
           if (!customDate) dataPrevista.setDate(dataPrevista.getDate() + days);
 
           await revisaoService.createRevisao({
-            user_id: user.uid,
             nome: customizedName || `Revisão ${days} dias: ${topicoNome} (${materiaNome})`,
             materia_id: selectedMateria,
             topico_id: topicoId || '',
@@ -1045,7 +963,7 @@ export function SessionModal() {
                                      if(confirm(`ATENÇÃO: Deseja EXCLUIR este material permanentemente de todo o sistema?\n${linkedCount > 1 ? `Isso removerá o vínculo com OUTRAS ${linkedCount - 1} sessão(ões) além desta.` : ''}`)) {
                                         try {
                                           const { materialService } = await import('@/services/materialService');
-                                          await materialService.deleteMaterial(mat.id, user.uid);
+                                          await materialService.deleteMaterial(mat.id, user.id);
                                         } catch(e) {}
                                      }
                                    }}
