@@ -1,7 +1,17 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import firebaseConfigData from '../../firebase-applet-config.json';
+// TODO: Retirar este arquivo de configuração antigo
+const firebaseConfigData = {
+  apiKey: "dummy",
+  authDomain: "dummy",
+  projectId: "dummy",
+  storageBucket: "dummy",
+  messagingSenderId: "dummy",
+  appId: "dummy",
+  measurementId: "dummy",
+  firestoreDatabaseId: "dummy"
+};
 
 // Configuração híbrida: prioriza variáveis do .env.local e cai de volta para o JSON do AI Studio
 const firebaseConfig = {
