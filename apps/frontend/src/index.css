@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #070708;
+  --color-surface-container-lowest: #070708;
+  --color-surface-container-low: rgba(255, 255, 255, 0.03);
+  --color-surface-container: rgba(255, 255, 255, 0.03);
+  --color-surface-container-high: rgba(255, 255, 255, 0.05);
+  --color-surface-container-highest: rgba(255, 255, 255, 0.08);
+  --color-surface-variant: rgba(255, 255, 255, 0.08);
+  --color-surface-dim: #070708;
+  --color-surface-bright: #121214;
+
+  --color-primary: #8b5cf6;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #a78bfa;
+  --color-on-primary-container: #ffffff;
+  --color-primary-fixed: #a78bfa;
+  --color-primary-fixed-dim: #8b5cf6;
+
+  --color-secondary: #94a3b8;
+  --color-on-secondary: #070708;
+  --color-secondary-container: rgba(255, 255, 255, 0.08);
+  --color-on-secondary-container: #f8fafc;
+  --color-secondary-fixed: #cbd5e1;
+
+  --color-tertiary: #f59e0b;
+  --color-on-tertiary: #000000;
+  --color-tertiary-container: rgba(245, 158, 11, 0.05);
+  --color-on-tertiary-container: #f59e0b;
+  --color-tertiary-fixed: #fcd34d;
+
+  --color-error: #ef4444;
+  --color-on-error: #ffffff;
+  --color-error-container: rgba(239, 68, 68, 0.1);
+  --color-on-error-container: #ef4444;
+
+  --color-success: #10b981;
+  --color-on-success: #ffffff;
+  --color-success-container: rgba(16, 185, 129, 0.1);
+  --color-on-success-container: #10b981;
+
+  --color-outline: rgba(255, 255, 255, 0.08);
+  --color-outline-variant: rgba(255, 255, 255, 0.08);
+
+  --color-background: #070708;
+  --color-on-background: #f8fafc;
+  --color-on-surface: #f8fafc;
+  --color-on-surface-variant: #94a3b8;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(5px);
+}
+
+.editorial-gradient {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Custom Global Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent; /* Thumb and Track */
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(139, 92, 246, 0.6); /* Primary color */
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: rgba(139, 92, 246, 0.8);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+}
