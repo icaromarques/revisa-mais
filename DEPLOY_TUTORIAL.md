@@ -18,12 +18,13 @@ O Supabase oferece um PostgreSQL gerenciado excelente e com interface amigável.
    - **Region**: Selecione uma região próxima de você (ex: `South America (São Paulo)`).
 4. Clique em **"Create new project"**. (Pode levar de 1 a 2 minutos para o banco de dados ser provisionado).
 5. **Pegue a String de Conexão (DATABASE_URL)**:
-   - No menu lateral esquerdo, clique na engrenagem ⚙️ (**Project Settings**).
-   - Vá em **Database**.
-   - Role até a seção **Connection string** e selecione a aba **URI**.
+   - No menu lateral esquerdo, clique no botão verde **Connect** no topo da tela (ou em Project Settings -> Database).
+   - No painel que abrir, selecione a aba **Node.js** (ou ORMs -> Prisma).
+   - Copie a **Transaction Pooler string** (NÃO use a Direct Connection / porta 5432).
    - Você verá uma URL parecida com: 
      `postgresql://postgres.[sua-ref]:[YOUR-PASSWORD]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`
    - Copie essa URL. Lembre-se de substituir `[YOUR-PASSWORD]` pela senha que você acabou de criar no passo 3. Essa será a sua `DATABASE_URL` no Backend.
+   - **MUITO IMPORTANTE:** Ao colar essa URL no Render, adicione `?pgbouncer=true&connection_limit=1` no final dela. Sem isso, o Prisma pode falhar na hora de criar as tabelas (migrate) no Render.
 
 *(Não é necessário criar as tabelas manualmente no Supabase. O nosso backend com o comando `npx prisma migrate deploy` fará isso automaticamente para você!).*
 
