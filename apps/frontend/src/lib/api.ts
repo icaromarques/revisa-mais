@@ -15,8 +15,14 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Se retornar 401, a sessão expirou ou é inválida. Forçamos o logout local e redirecionamos.
-      window.location.href = '/login?error=session_expired';
+      // Se retornar 401, a sessão expirou ou é inválida. 
+      // Mas ignoramos se for o checkSession ou se já estivermos na tela de login
+      const isSessionCheck = error.config?.url === '/auth/session';
+      const isAlreadyOnLogin = window.location.pathname.startsWith('/login');
+      
+      if (!isSessionCheck && !isAlreadyOnLogin) {
+         window.location.href = '/login?error=session_expired';
+      }
     }
     return Promise.reject(error);
   }
