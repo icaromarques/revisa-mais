@@ -42,13 +42,13 @@ O Render é ótimo para hospedar APIs Node.js de forma gratuita.
    - **Name**: `revisa-backend`
    - **Root Directory**: Digite `apps/backend` (Isso diz ao Render para focar apenas na pasta do backend).
    - **Environment**: Selecione `Node`.
-   - **Build Command**: Digite `npm install && npx prisma generate && npm run build`
-   - **Start Command**: Digite `npm run start` (ou o comando que transpila e roda o build, ex: `node dist/index.js`).
+   - **Build Command**: Digite `npm install && npx prisma generate && npx prisma migrate deploy && npm run build`
+   - **Start Command**: Digite `npm run start` (ou `node dist/index.js`).
+   - **Importante**: confirme que o Render está apontando para o repositório/branch com os commits mais recentes (ex.: `icaromarques/revisa-mais`, branch `main`). Deploys em commits antigos falham no `tsc`.
 7. **Instance Type**: Certifique-se de que está selecionada a opção **Free**.
 8. **Configurar as Variáveis de Ambiente (Environment Variables)**:
    Role um pouco para baixo e clique em **"Advanced"**, depois em **"Add Environment Variable"**. Adicione exatamente estas chaves:
    - `DATABASE_URL` -> Cole a URL do Supabase (aquela que você colocou a senha).
-   - `PORT` -> `4000` (ou deixe sem, o Render mapeia automaticamente, mas é bom colocar).
    - `JWT_SECRET` -> Crie uma senha aleatória para segurança (Ex: `sua-senha-super-secreta-revisa-123`).
    - `GOOGLE_CLIENT_ID` -> Copie a chave que você gerou lá no Google Console.
    - `GOOGLE_CLIENT_SECRET` -> Copie a chave secreta gerada no Google Console.
