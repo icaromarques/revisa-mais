@@ -125,3 +125,31 @@ Como você não é programadora sênior (ainda!), a IA vai continuar sendo a sua
 *   **Autenticação**: O Firebase ainda cuida do login (tela do Google), mas a comunicação com o Backend usa algo chamado "JWT Bearer Token". A IA já sabe disso pelo arquivo de contexto, mas é bom você saber que a segurança está reforçada.
 
 Você tem em mãos uma arquitetura digna de aplicativos grandes do mercado. Boa sorte nas próximas aventuras com o código, e continue criando!
+
+---
+
+## 💻 Como Rodar o Revisa+ no seu Mac (Para testar sem medo!)
+
+Criamos um ambiente **Local** (que roda apenas no seu Mac) para você poder testar novas funcionalidades, pedir para a IA quebrar código e aprender sem nenhum risco de afetar os usuários reais ou o banco de dados de produção.
+
+Para isso, preparamos um script mágico chamado `rodar-mac.sh`. Ele usa algo chamado **Docker** para criar um "banco de dados falso" no seu Mac em poucos segundos.
+
+### O que você precisa ter instalado no Mac:
+1. **Node.js** (O mesmo que você já usava).
+2. **Docker Desktop**: Baixe em [docker.com](https://www.docker.com/products/docker-desktop/), instale e deixe o aplicativo aberto (um ícone de baleia vai ficar lá em cima na barra do seu Mac).
+
+### Como iniciar seu "Parquinho de Diversões":
+
+Sempre que quiser codar no Revisa+ na sua máquina, abra seu projeto (Cursor/VSCode), abra o **Terminal**, e digite ou cole o seguinte comando:
+
+```bash
+sh rodar-mac.sh
+```
+
+**O que esse script faz sozinho por você?**
+1. Sobe o Banco de Dados PostgreSQL no seu Docker.
+2. Instala qualquer pacote novo (`npm install`).
+3. Cria as tabelas do Prisma no seu banco local zerado (`npx prisma db push`).
+4. Liga o Backend (porta 4000) e o Frontend (porta 3000) ao mesmo tempo.
+
+Quando quiser parar, é só clicar no Terminal e apertar `CTRL + C`. Simples assim!
