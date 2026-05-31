@@ -2,10 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { Header } from '@/components/Header';
 import { History as HistoryIcon, Search, Clock, Target, Calendar, Edit2, Trash2, Filter, ChevronDown, Eye, ArrowUpDown, X, Book, FileText } from 'lucide-react';
 import { useSessionModal } from '@/contexts/SessionModalContext';
-// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
-// Atualmente ela ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { collection, query, where, onSnapshot, orderBy, deleteDoc, doc } from 'firebase/firestore'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
@@ -59,44 +55,31 @@ export function Historico() {
   useEffect(() => {
     if (!user) return;
 
-    // Fetch Materias
-    const unsubMaterias = onSnapshot(query(collection(db, 'materias'), where('user_id', '==', user.id)), (snapshot) => {
+    apiClient.get('/materias').then(({ data }) => {
       const map: Record<string, string> = {};
       const list: any[] = [];
-      snapshot.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        map[docSnap.id] = data.nome;
-        list.push({ id: docSnap.id, nome: data.nome });
+      data.forEach((m: any) => {
+        map[m.id] = m.nome;
+        list.push({ id: m.id, nome: m.nome });
       });
       setMateriasMap(map);
       setMateriasList(list);
-    });
+    }).catch(console.error);
 
-    // Fetch Topicos
-    const unsubTopicos = onSnapshot(query(collection(db, 'topicos'), where('user_id', '==', user.id)), (snapshot) => {
+    apiClient.get('/topicos').then(({ data }) => {
       const map: Record<string, string> = {};
-      snapshot.docs.forEach(docSnap => map[docSnap.id] = docSnap.data().nome);
+      data.forEach((t: any) => map[t.id] = t.nome);
       setTopicosMap(map);
-    });
+    }).catch(console.error);
 
-    const q = query(
-      collection(db, 'sessoes'),
-      where('user_id', '==', user.id),
-      orderBy('created_at', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setSessoes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    apiClient.get('/sessoes').then(({ data }) => {
+      setSessoes(data);
       setLoading(false);
-    }, (error) => {
-      console.error(error);
+    }).catch((err) => {
+      console.error(err);
       setLoading(false);
     });
 
-    return () => {
-       unsubMaterias();
-       unsubTopicos();
-       unsubscribe();
-    };
   }, [user]);
 
   const handleDeleteSessao = async (sessao: any) => {
@@ -107,10 +90,10 @@ export function Historico() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await cascadeDeleteService.deleteSessaoAndDerivates(sessao.id, user.id);
-          await deleteDoc(doc(db, 'sessoes', sessao.id));
+          await apiClient.delete(`/sessoes/${sessao.id}`);
           toast.success("Sessão excluída com sucesso!");
           setIsDetailModalOpen(false);
+          apiClient.get('/sessoes').then(({ data }) => setSessoes(data));
         } catch (error) {
           console.error("Erro ao excluir sessão:", error);
           toast.error("Erro ao excluir sessão.");

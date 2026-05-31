@@ -1,16 +1,10 @@
-// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { GradeFaculdade, BloqueioAgenda } from '@/types/availability';
-import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';
+import { apiClient } from '@/lib/api';
 
 export const availabilityService = {
-  // Sync helper
+  // Sync helper (now handled partly by backend or not strictly necessary if handled properly)
   async syncMateriaGradePeriodo(materiaId: string, userId: string, data: any) {
     try {
-      const q = query(collection(db, 'grade_faculdade'), where('user_id', '==', userId), where('materia_id', '==', materiaId));
-      const snap = await getDocs(q);
       const updateData: any = {};
       if (data.periodo_inicio !== undefined) {
          updateData.periodo_inicio = data.periodo_inicio;
@@ -25,7 +19,10 @@ export const availabilityService = {
       if (data.limite_faltas_percentual !== undefined) updateData.limite_faltas_percentual = data.limite_faltas_percentual;
       
       if (Object.keys(updateData).length > 0) {
-        await Promise.all(snap.docs.map(d => updateDoc(doc(db, 'grade_faculdade', d.id), updateData)));
+        const { data: grades } = await apiClient.get(`/disponibilidade/grade_faculdade?materia_id=${materiaId}`);
+        if (grades && grades.length > 0) {
+           await Promise.all(grades.map((g: any) => apiClient.put(`/disponibilidade/grade_faculdade/${g.id}`, updateData)));
+        }
       }
     } catch (e) {
       console.error("Failed to sync grade", e);
@@ -35,97 +32,88 @@ export const availabilityService = {
   // ================= Grade Faculdade =================
   async getGradeFaculdade(userId: string): Promise<GradeFaculdade[]> {
     try {
-      const q = query(collection(db, 'grade_faculdade'), where('user_id', '==', userId));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GradeFaculdade));
+      const { data } = await apiClient.get('/disponibilidade/grade_faculdade');
+      return data || [];
     } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'grade_faculdade');
+      console.error("Failed to get grade faculdade", err);
       return [];
     }
   },
 
   async getGradeFaculdadePorMateria(userId: string, materiaId: string): Promise<GradeFaculdade[]> {
-    const q = query(collection(db, 'grade_faculdade'), where('user_id', '==', userId), where('materia_id', '==', materiaId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GradeFaculdade));
+    try {
+       const { data } = await apiClient.get(`/disponibilidade/grade_faculdade?materia_id=${materiaId}`);
+       return data || [];
+    } catch (err) {
+       console.error("Failed to get grade faculdade by materia", err);
+       return [];
+    }
   },
 
   async createGradeFaculdade(data: Omit<GradeFaculdade, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
-    const docRef = await addDoc(collection(db, 'grade_faculdade'), {
-      ...data,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-    
-    return docRef.id;
+    try {
+       const res = await apiClient.post('/disponibilidade/grade_faculdade', data);
+       return res.data.id;
+    } catch (err) {
+       console.error("Failed to create grade", err);
+       throw err;
+    }
   },
 
   async updateGradeFaculdade(id: string, data: Partial<GradeFaculdade>): Promise<void> {
     try {
-      const docRef = doc(db, 'grade_faculdade', id);
-      await updateDoc(docRef, {
-        ...data,
-        updated_at: new Date().toISOString()
-      });
+      await apiClient.put(`/disponibilidade/grade_faculdade/${id}`, data);
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `grade_faculdade/${id}`);
+      console.error("Failed to update grade", err);
+      throw err;
     }
   },
 
   async deleteGradeFaculdade(id: string, userId: string): Promise<void> {
     try {
-      console.log('[Service] deleteGradeFaculdade', { id, userId });
-      // Find occurrences to delete as well - adding user_id filter for safety
-      const qOcorrencias = query(
-        collection(db, 'ocorrencias_grade'), 
-        where('user_id', '==', userId),
-        where('grade_id', '==', id), 
-        where('status', '==', 'pendente_confirmacao')
-      );
-      const snap = await getDocs(qOcorrencias);
-      console.log(`[Service] Encontradas ${snap.docs.length} ocorrências pendentes para deletar`);
-      const promises = snap.docs.map(d => deleteDoc(doc(db, 'ocorrencias_grade', d.id)));
-      
-      await Promise.all([
-        deleteDoc(doc(db, 'grade_faculdade', id)),
-        ...promises
-      ]);
+      await apiClient.delete(`/disponibilidade/grade_faculdade/${id}`);
     } catch (err) {
       console.error('[Service] Erro em deleteGradeFaculdade:', err);
-      handleFirestoreError(err, OperationType.DELETE, `grade_faculdade/${id}`);
+      throw err;
     }
   },
 
   // ================= Bloqueio Agenda =================
   async getBloqueios(userId: string): Promise<BloqueioAgenda[]> {
     try {
-      const q = query(collection(db, 'bloqueios_agenda'), where('user_id', '==', userId));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BloqueioAgenda));
+      const { data } = await apiClient.get('/disponibilidade/bloqueios');
+      return data || [];
     } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, 'bloqueios_agenda');
+      console.error("Failed to get bloqueios", err);
       return [];
     }
   },
 
   async createBloqueio(data: Omit<BloqueioAgenda, 'id' | 'created_at' | 'updated_at'>): Promise<string> {
-    const docRef = await addDoc(collection(db, 'bloqueios_agenda'), {
-      ...data,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-    return docRef.id;
+    try {
+       const res = await apiClient.post('/disponibilidade/bloqueios', data);
+       return res.data.id;
+    } catch (err) {
+       console.error("Failed to create bloqueio", err);
+       throw err;
+    }
   },
 
   async updateBloqueio(id: string, data: Partial<BloqueioAgenda>): Promise<void> {
-    const docRef = doc(db, 'bloqueios_agenda', id);
-    await updateDoc(docRef, {
-      ...data,
-      updated_at: new Date().toISOString()
-    });
+    try {
+      await apiClient.put(`/disponibilidade/bloqueios/${id}`, data);
+    } catch (err) {
+      console.error("Failed to update bloqueio", err);
+      throw err;
+    }
   },
 
   async deleteBloqueio(id: string): Promise<void> {
-    await deleteDoc(doc(db, 'bloqueios_agenda', id));
+    try {
+      await apiClient.delete(`/disponibilidade/bloqueios/${id}`);
+    } catch (err) {
+      console.error("Failed to delete bloqueio", err);
+      throw err;
+    }
   }
 };

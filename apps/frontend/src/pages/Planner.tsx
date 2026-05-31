@@ -15,10 +15,6 @@ import { GradeFaculdade, BloqueioAgenda } from '@/types/availability';
 import { useNavigate } from 'react-router-dom';
 import { googleCalendarService } from '@/services/googleCalendar';
 import { unifiedAvailabilityService } from '@/services/unifiedAvailabilityService';
-// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
-// Atualmente ela ainda usa firebase/firestore diretamente.
-import { doc, getDoc } from 'firebase/firestore'; // TODO: Refatorar
-import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
@@ -47,11 +43,13 @@ export function Planner() {
     googleCalendarService.syncToLocalDatabase().catch(e => console.error(e));
 
     // Get last sync context for header
-    getDoc(doc(db, 'users', user.id)).then(d => {
-       if (d.exists()) {
-          setLastSyncText(unifiedAvailabilityService.getSyncStatusDisplay(d.data().gcal_last_sync));
+    apiClient.get('/usuarios/me').then(({ data }) => {
+       if (data && data.gcal_last_sync) {
+          setLastSyncText(unifiedAvailabilityService.getSyncStatusDisplay(data.gcal_last_sync));
+       } else {
+          setLastSyncText('');
        }
-    });
+    }).catch(console.error);
 
     // Fetch Eventos
     calendarService.fetchUserEvents(user.id).then((events: any[]) => {

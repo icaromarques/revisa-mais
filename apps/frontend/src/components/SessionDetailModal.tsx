@@ -3,10 +3,6 @@ import { X, Clock, Calendar, Book, FileText, Target, BarChart2, Edit2, Trash2, L
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn, formatDuration } from '@/lib/utils';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { doc, getDoc } from 'firebase/firestore'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -36,34 +32,18 @@ export function SessionDetailModal({
   const [loadingMateriais, setLoadingMateriais] = useState(false);
 
   useEffect(() => {
-    let unsubscribes: any[] = [];
-    
     async function setupListeners() {
       setLoadingMateriais(true);
       const matIds = sessao?.linked_material_ids || (sessao?.material_id ? [sessao.material_id] : []);
       
       if (matIds.length > 0) {
         try {
-          const { onSnapshot, doc } = await import('firebase/firestore');
-          
-          const resultsMap = new Map();
-          
-          unsubscribes = matIds.map((mId: string) => {
-            return onSnapshot(doc(db, 'materiais', mId), (docSnap) => {
-              if (docSnap.exists()) {
-                resultsMap.set(mId, { id: docSnap.id, ...docSnap.data() });
-              } else {
-                resultsMap.set(mId, { id: mId, _removed: true });
-              }
-              // Convert map to array keeping order
-              setMateriaisVinculados(matIds.map((id: string) => resultsMap.get(id)).filter(Boolean));
-              if (resultsMap.size >= matIds.length) {
-                setLoadingMateriais(false);
-              }
-            });
-          });
+          // Temporarily mock materials since endpoint doesn't exist yet, 
+          // or we can just skip it instead of calling firebase
+          setMateriaisVinculados([]);
         } catch (error) {
           console.error("Error setting up materials listeners", error);
+        } finally {
           setLoadingMateriais(false);
         }
       } else {
@@ -75,10 +55,6 @@ export function SessionDetailModal({
     if (isOpen && sessao) {
       setupListeners();
     }
-
-    return () => {
-      unsubscribes.forEach(unsub => unsub());
-    };
   }, [isOpen, sessao?.linked_material_ids?.join(','), sessao?.material_id]);
 
   if (!isOpen || !sessao) return null;

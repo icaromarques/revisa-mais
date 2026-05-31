@@ -1,12 +1,9 @@
 import { GradeFaculdade, BloqueioAgenda } from '@/types/availability';
-// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { isSameDay, addMinutes, isBefore, isAfter, startOfDay, endOfDay, getDay, addDays } from 'date-fns';
 import { EventoAcademico } from '@/types/calendar';
 import { parseValidDate } from '@/lib/utils';
 import { userPreferencesService } from './userPreferencesService';
+import { apiClient } from '@/lib/api';
 
 export interface TimeSlot {
   start: Date;
@@ -61,27 +58,15 @@ export const unifiedAvailabilityService = {
      const preferences = prefOverrides || await userPreferencesService.getPreferences(userId);
  
      // 1. Get Grade
-     const qGrade = query(collection(db, 'grade_faculdade'), where('user_id', '==', userId), where('ativo', '==', true));
-     const gradeSnap = await getDocs(qGrade);
-     const grade = gradeSnap.docs.map(d => d.data() as GradeFaculdade);
+     const { data: gradesRaw } = await apiClient.get('/disponibilidade/grade_faculdade');
+     const grade = gradesRaw?.filter((g: any) => g.ativo) || [];
  
      // 2. Get Bloqueios
-     const qBloqueios = query(collection(db, 'bloqueios_agenda'), where('user_id', '==', userId), where('ativo', '==', true));
-     const bloqueiosSnap = await getDocs(qBloqueios);
-     const bloqueios = bloqueiosSnap.docs.map(d => d.data() as BloqueioAgenda);
+     const { data: bloqueiosRaw } = await apiClient.get('/disponibilidade/bloqueios');
+     const bloqueios = bloqueiosRaw?.filter((b: any) => b.ativo) || [];
  
      // 3. Get Planner/Calendar events for this day
-     const qEventos = query(
-       collection(db, 'eventos_academicos'),
-       where('user_id', '==', userId)
-     );
-     const eventosSnap = await getDocs(qEventos);
-     
-     const { getVisibleCalendarEvents } = await import('@/lib/calendar-utils');
-     const validEventos = getVisibleCalendarEvents(
-        eventosSnap.docs.map(d => ({ id: d.id, ...d.data() }) as EventoAcademico)
-     );
-     
+     const validEventos = await this.getUserDayEvents(userId, date);
      const eventos = validEventos.filter(e => {
         if (!e.data_inicio) return false;
         const d = parseValidDate(e.data_inicio);
@@ -93,7 +78,7 @@ export const unifiedAvailabilityService = {
      const dateMidnight = new Date(date);
      dateMidnight.setHours(0,0,0,0);
 
-     grade.forEach(g => {
+     grade.forEach((g: any) => {
         if (!isDateWithinValidity(g, dateMidnight)) return;
 
         const hasDay = g.recorrente !== false && (g.dias_semana ? g.dias_semana.includes(weekDayNo) : g.dia_semana === weekDayNo);
@@ -110,7 +95,7 @@ export const unifiedAvailabilityService = {
         }
      });
 
-     bloqueios.forEach(b => {
+     bloqueios.forEach((b: any) => {
        if (!isDateWithinValidity(b, dateMidnight)) return;
 
        const hasDay = b.recorrente && (b.dias_semana ? b.dias_semana.includes(weekDayNo) : b.dia_semana === weekDayNo);
@@ -126,7 +111,7 @@ export const unifiedAvailabilityService = {
        }
      });
 
-     eventos.forEach(e => {
+     eventos.forEach((e: any) => {
        // Do not block availability for full-day deadlines types
        if (e.dia_inteiro && ['prova', 'trabalho', 'apresentacao', 'lembrete', 'tarefa'].includes(e.tipo)) {
            return;

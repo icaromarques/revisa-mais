@@ -8,10 +8,6 @@ import {
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
-// Atualmente ela ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { doc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
@@ -110,69 +106,55 @@ export function AulaDetalhePage() {
     if (!user || !materiaId || !aulaId) return;
 
     // Fetch Materia
-    const unsubMateria = onSnapshot(doc(db, 'materias', materiaId), (doc) => {
-      if (doc.exists()) {
-        setMateria({ id: doc.id, ...doc.data() });
-      }
-    });
+    apiClient.get(`/materias/${materiaId}`).then(({ data }) => setMateria(data)).catch(console.error);
 
     // Fetch Aula
-    const unsubAula = onSnapshot(doc(db, 'aulas', aulaId), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setAula({ id: docSnap.id, ...data });
-        setNotesForm({
-          resumo_rapido: data.resumo_rapido || '',
-          conteudo: data.conteudo || '',
-          duvidas: data.duvidas || '',
-          observacoes: data.observacoes || ''
-        });
-        setLoading(false);
-      } else {
-        toast.error('Aula não encontrada');
-        navigate(`/materias/${materiaId}`);
-      }
-    });
-
-    // Fetch all classes of this materia for the material modal
-    const unsubAllAulas = onSnapshot(
-      query(collection(db, 'aulas'), where('user_id', '==', user.id), where('materia_id', '==', materiaId)),
-      (snap) => setAllAulasInMateria(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+    apiClient.get(`/aulas/${aulaId}`).then(({ data }) => {
+       if (data) {
+          setAula(data);
+          if (!editingSection) {
+            setNotesForm({
+              resumo_rapido: data.resumo_rapido || '',
+              conteudo: data.conteudo || '',
+              duvidas: data.duvidas || '',
+              observacoes: data.observacoes || ''
+            });
+          }
+       } else {
+          toast.error("Aula não encontrada");
+          navigate(`/materias/${materiaId}`);
+       }
+       setLoading(false);
+    }).catch(console.error);
 
     // Fetch Topics
-    const unsubTopicos = onSnapshot(
-      query(collection(db, 'topicos'), where('user_id', '==', user.id), where('materia_id', '==', materiaId)),
-      (snap) => setTopicos(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+    apiClient.get(`/topicos?materia_id=${materiaId}`).then(({ data }) => {
+      setTopicos(data || []);
+    }).catch(console.error);
 
     // Fetch Materials
-    const unsubMateriais = onSnapshot(
-      query(collection(db, 'materiais'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)),
-      (snap) => setMateriais(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+    apiClient.get(`/materiais?aula_id=${aulaId}`).then(({ data }) => {
+      setMateriais(data || []);
+    }).catch(console.error);
 
     // Fetch Revisions
-    const unsubRevisoes = onSnapshot(
-      query(collection(db, 'revisoes'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)),
-      (snap) => setRevisoes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+    apiClient.get(`/revisoes?aula_id=${aulaId}`).then(({ data }) => {
+      setRevisoes(data || []);
+    }).catch(console.error);
 
-    // Fetch Events (Evaluations)
-    const unsubEventos = onSnapshot(
-        query(collection(db, 'eventos_academicos'), where('user_id', '==', user.id), where('materia_id', '==', materiaId)),
-        (snap) => setEventos(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+    // Fetch Events (Planner)
+    apiClient.get(`/eventos?aula_id=${aulaId}`).then(({ data }) => {
+      setEventos(data || []);
+    }).catch(console.error);
 
-    return () => {
-      unsubMateria();
-      unsubAula();
-      unsubAllAulas();
-      unsubTopicos();
-      unsubMateriais();
-      unsubRevisoes();
-      unsubEventos();
-    };
+    // Fetch All Aulas for Navigation
+    apiClient.get(`/aulas?materia_id=${materiaId}`).then(({ data }) => {
+      if (data) {
+         const sorted = data.sort((a: any, b: any) => new Date(a.data).getTime() - new Date(b.data).getTime());
+         setAllAulasInMateria(sorted);
+      }
+    }).catch(console.error);
+
   }, [user, materiaId, aulaId, navigate]);
 
   const [isVincularMaterialOpen, setIsVincularMaterialOpen] = useState(false);
@@ -182,18 +164,22 @@ export function AulaDetalhePage() {
     if (!user || !materiaId || !aulaId) return;
 
     // Fetch all materials of this materia
-    const unsubAllMateriais = onSnapshot(
-      query(collection(db, 'materiais'), where('user_id', '==', user.id), where('materia_id', '==', materiaId)),
-      (snap) => setAllMateriaisMateria(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+    apiClient.get(`/materiais?materia_id=${materiaId}`).then(({ data }) => {
+      setAllMateriaisMateria(data || []);
+    }).catch(console.error);
     
-    return () => unsubAllMateriais();
   }, [user, materiaId, aulaId]);
 
   const handleLinkMaterial = async (matId: string) => {
     try {
-      await updateDoc(doc(db, 'materiais', matId), {
+      await apiClient.patch(`/materiais/${matId}`, {
         aula_id: aulaId
+      });
+      // Update local state temporarily until next refetch if needed, but endpoint refetch might be better
+      setMateriais(prev => {
+        const mat = allMateriaisMateria.find(m => m.id === matId);
+        if (mat) return [...prev, { ...mat, aula_id: aulaId }];
+        return prev;
       });
       toast.success('Material vinculado com sucesso!');
     } catch (err) {
@@ -207,52 +193,21 @@ export function AulaDetalhePage() {
     if (!aula) return;
     setIsProcessingDelete(true);
     try {
-      if (deleteRelated) {
-        const batch = writeBatch(db);
-        
-        // Materials
-        const materialsToDel = await getDocs(query(collection(db, 'materiais'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
-        materialsToDel.forEach(d => batch.delete(d.ref));
-
-        // Events associated
-        const eventsToDel = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
-        eventsToDel.forEach(d => batch.delete(d.ref));
-
-        await batch.commit();
-
-        // Cascade delete revisoes (this handles Google Calendar sync)
-        await cascadeDeleteService.deleteAulaAndDerivates(aulaId, user.id);
-      } else {
-        // Just unlink
-        const batch = writeBatch(db);
-        
-        const materialsToUnlink = await getDocs(query(collection(db, 'materiais'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
-        materialsToUnlink.forEach(d => batch.update(d.ref, { aula_id: null }));
-
-        const revisionsToUnlink = await getDocs(query(collection(db, 'revisoes'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
-        revisionsToUnlink.forEach(d => batch.update(d.ref, { aula_id: null }));
-
-        const eventsToUnlink = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
-        eventsToUnlink.forEach(d => batch.update(d.ref, { aula_id: null }));
-
-        await batch.commit();
-      }
-
+      await apiClient.delete(`/aulas/${aula.id}?cascade=${deleteRelated}`);
+      
       // Reset occurrence if it was a makeup class
       if (aula.tipo_aula === 'reposicao' && aula.reposicao_ocorrencia_id) {
          try {
-            await updateDoc(doc(db, 'ocorrencias_grade', aula.reposicao_ocorrencia_id), {
+            await apiClient.patch(`/ocorrencias/${aula.reposicao_ocorrencia_id}`, {
                status_reposicao: 'pendente',
                reposicao_aula_id: null,
-               reposicao_observacao: 'Reposição excluída',
-               updated_at: new Date().toISOString()
+               reposicao_observacao: 'Reposição excluída'
             });
          } catch(e) {
             console.error('Failed to reset occurrence', e);
          }
       }
 
-      await deleteDoc(doc(db, 'aulas', aula.id));
       toast.success('Aula excluída com sucesso');
       navigate(`/materias/${materiaId}`);
     } catch (err) {
@@ -268,11 +223,13 @@ export function AulaDetalhePage() {
     if (!aula) return;
     setIsSavingNotes(true);
     try {
-      await updateDoc(doc(db, 'aulas', aulaId!), {
+      await apiClient.patch(`/aulas/${aulaId}`, {
         [section]: (notesForm as any)[section]
       });
       toast.success('Alteração salva!');
       setEditingSection(null);
+      // Update local state
+      setAula((prev: any) => ({...prev, [section]: (notesForm as any)[section]}));
     } catch (error) {
       toast.error('Erro ao salvar notas.');
     } finally {
@@ -290,10 +247,12 @@ export function AulaDetalhePage() {
       "Deseja realmente limpar este conteúdo? Esta ação não poderá ser desfeita.",
       async () => {
         try {
-          await updateDoc(doc(db, 'aulas', aulaId!), {
+          await apiClient.patch(`/aulas/${aulaId}`, {
             [section]: ''
           });
           setNotesForm(prev => ({ ...prev, [section]: '' }));
+          // Update local state
+          setAula((prev: any) => ({...prev, [section]: ''}));
           toast.success('Conteúdo removido');
           closeConfirm();
         } catch (err) {
@@ -334,27 +293,24 @@ export function AulaDetalhePage() {
     setSavingRevisao(true);
     try {
       const dataISO = revisaoForm.data_prevista ? new Date(revisaoForm.data_prevista).toISOString() : null;
-      const payload = {
-        user_id: user.id,
+      const payload: any = {
         materia_id: materiaId,
         aula_id: aulaId,
         topico_id: aula.topico_id || null,
         nome: revisaoForm.nome,
         data_prevista: dataISO,
         status: revisaoForm.status,
-        origem: selectedRevisao ? (selectedRevisao.origem || 'manual') : 'manual',
-        updated_at: new Date().toISOString()
+        origem: selectedRevisao ? (selectedRevisao.origem || 'manual') : 'manual'
       };
 
       if (selectedRevisao) {
-          await updateDoc(doc(db, 'revisoes', selectedRevisao.id), payload);
+          await apiClient.put(`/revisoes/${selectedRevisao.id}`, payload);
           toast.success("Revisão atualizada!");
+          apiClient.get(`/revisoes?aula_id=${aulaId}`).then(({ data }) => setRevisoes(data || []));
       } else {
-         await addDoc(collection(db, 'revisoes'), {
-           ...payload,
-           created_at: new Date().toISOString()
-         });
+         await apiClient.post('/revisoes', payload);
          toast.success("Revisão agendada!");
+         apiClient.get(`/revisoes?aula_id=${aulaId}`).then(({ data }) => setRevisoes(data || []));
       }
       setIsModalRevisaoOpen(false);
     } catch (err) {
@@ -367,11 +323,11 @@ export function AulaDetalhePage() {
   const handleToggleRevisaoStatus = async (rev: any) => {
     try {
       const newStatus = rev.status === 'concluida' ? 'pendente' : 'concluida';
-      await updateDoc(doc(db, 'revisoes', rev.id), {
-        status: newStatus,
-        data_realizada: newStatus === 'concluida' ? new Date().toISOString() : null
+      await apiClient.patch(`/revisoes/${rev.id}`, {
+        status: newStatus
       });
       toast.success(newStatus === 'concluida' ? 'Revisão concluída!' : 'Revisão reaberta');
+      apiClient.get(`/revisoes?aula_id=${aulaId}`).then(({ data }) => setRevisoes(data || []));
     } catch (err) {
       toast.error('Erro ao atualizar status');
     }
@@ -387,8 +343,9 @@ export function AulaDetalhePage() {
       "Excluir esta revisão permanentemente? Esta ação não pode ser desfeita.",
       async () => {
         try {
-          await deleteDoc(doc(db, 'revisoes', id));
+          await apiClient.delete(`/revisoes/${id}`);
           toast.success('Revisão excluída');
+          apiClient.get(`/revisoes?aula_id=${aulaId}`).then(({ data }) => setRevisoes(data || []));
           closeConfirm();
         } catch (err) {
           toast.error('Erro ao excluir');
@@ -408,10 +365,11 @@ export function AulaDetalhePage() {
       "Deseja desvincular este material da aula? Ele continuará existindo no acervo da matéria.",
       async () => {
         try {
-          await updateDoc(doc(db, 'materiais', matId), {
+          await apiClient.patch(`/materiais/${matId}`, {
             aula_id: null
           });
           toast.success('Material desvinculado');
+          setMateriais(prev => prev.filter(m => m.id !== matId));
           closeConfirm();
         } catch (err) {
           toast.error('Erro ao desvincular');
@@ -433,8 +391,9 @@ export function AulaDetalhePage() {
       "Deseja excluir este material permanentemente do sistema?",
       async () => {
         try {
-          await deleteDoc(doc(db, 'materiais', matId));
+          await apiClient.delete(`/materiais/${matId}`);
           toast.success('Material excluído');
+          setMateriais(prev => prev.filter(m => m.id !== matId));
           closeConfirm();
         } catch (err) {
           toast.error('Erro ao excluir');

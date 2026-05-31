@@ -4,8 +4,6 @@ import { GradeFaculdade } from '@/types/availability';
 import { useAuth } from '@/contexts/AuthContext';
 import { availabilityService } from '@/services/availabilityService';
 import { apiClient } from '@/lib/api';
-import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore'; // TODO: Refatorar no próximo passo
-import { db } from '@/lib/firebase'; // TODO: Refatorar no próximo passo
 import { X } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -75,24 +73,9 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
     }
     
     if (user) {
-      getDocs(query(collection(db, 'materias'), where('user_id', '==', user.id)))
-        .then(snap => {
-           setMaterias(snap.docs.map(d => ({
-             id: d.id, 
-             nome: d.data().nome, 
-             professor: d.data().professor,
-             cor: d.data().cor,
-             periodo_inicio: d.data().periodo_inicio,
-             periodo_fim: d.data().periodo_fim,
-             tipo_periodo: d.data().tipo_periodo,
-             numero_periodo: d.data().numero_periodo,
-             limite_faltas_percentual: d.data().limite_faltas_percentual,
-             meta_semanal_horas: d.data().meta_semanal_horas,
-             prioridade: d.data().prioridade,
-             peso_importancia: d.data().peso_importancia,
-             status: d.data().status
-           })));
-        });
+      apiClient.get('/materias').then(({ data }) => {
+           setMaterias(data);
+      }).catch(console.error);
     }
   }, [horarioToEdit, user]);
 
@@ -130,8 +113,6 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
       let finalMateriaId = form.materia_id;
 
       if (isCreatingMateria && newMateria.nome) {
-         const { addDoc, collection } = await import('firebase/firestore');
-         
          const nomeReal = form.titulo && !userEditedTitulo && !newMateria.nome ? form.titulo : newMateria.nome;
          const profReal = form.professor && !userEditedProfessor && !newMateria.professor ? form.professor : newMateria.professor;
 
@@ -147,48 +128,36 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
              meta_semanal_horas: newMateria.meta_semanal_horas ? Number(newMateria.meta_semanal_horas) : null,
              prioridade: newMateria.prioridade,
              peso_importancia: newMateria.peso_importancia,
-             user_id: user.id,
-             progresso: 0,
              status: 'em_andamento',
-             faltas: 0,
-             created_at: new Date().toISOString(),
-             updated_at: new Date().toISOString()
+             faltas: 0
          };
-         const rootCol = collection(db, 'materias');
-         const docRef = await addDoc(rootCol, obj);
-         finalMateriaId = docRef.id;
+         
+         const { data: novaMateria } = await apiClient.post('/materias', obj);
+         finalMateriaId = novaMateria.id;
          toast.success("Matéria vinculada criada!");
          
          if (retroFaltasOption === 'quantidade' && retroFaltasQuant > 0) {
-            await addDoc(collection(db, 'ocorrencias_grade'), {
-               user_id: user.id,
-               materia_id: docRef.id,
-               grade_id: null,
+            await apiClient.post('/ocorrencias', {
+               materia_id: novaMateria.id,
                data: newMateria.periodo_inicio || new Date().toISOString(),
                status: 'falta',
                origem: 'retroativa',
                quantidade_ocorrencias: retroFaltasQuant,
                tipo_falta: 'comum',
                status_reposicao: 'pendente',
-               observacoes: 'Faltas retroativas informadas no cadastro da matéria pela grade',
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
+               observacoes: 'Faltas retroativas informadas no cadastro da matéria pela grade'
             });
          } else if (retroFaltasOption === 'detalhado' && retroFaltasLista.length > 0) {
             for (const falta of retroFaltasLista) {
-               await addDoc(collection(db, 'ocorrencias_grade'), {
-                  user_id: user.id,
-                  materia_id: docRef.id,
-                  data: falta.data || new Date().toISOString(),
+               await apiClient.post('/ocorrencias', {
+                  materia_id: novaMateria.id,
+                  data: falta.data,
                   status: 'falta',
                   origem: 'retroativa',
                   quantidade_ocorrencias: falta.quantidade || 1,
-                  tipo_falta: falta.tipo_falta,
-                  status_reposicao: falta.status_reposicao,
-                  grade_id: null,
-                  observacoes: falta.observacoes || 'Falta retroativa detalhada',
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
+                  tipo_falta: 'comum',
+                  status_reposicao: 'pendente',
+                  observacoes: falta.observacao || 'Adicionada retroativamente via grade'
                });
             }
          }

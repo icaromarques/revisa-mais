@@ -27,6 +27,36 @@ export const materiaController = {
     }
   },
 
+  // Buscar uma única Matéria pelo ID (Detalhe)
+  async getMateriaById(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const { id } = req.params;
+
+      const materia = await prisma.materia.findUnique({
+        where: { id },
+        include: {
+          topicos: true,
+          aulas: true,
+          materiais: true,
+          notas: true,
+          _count: {
+            select: { topicos: true, aulas: true, materiais: true, revisoes: true }
+          }
+        }
+      });
+
+      if (!materia || materia.userId !== userId) {
+        return res.status(404).json({ error: 'Matéria não encontrada' });
+      }
+
+      res.json(materia);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao buscar matéria' });
+    }
+  },
+
   // Listar todas as Matérias do Usuário (com quantidade de tópicos e revisões)
   async getMaterias(req: Request, res: Response) {
     try {

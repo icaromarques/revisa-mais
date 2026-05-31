@@ -2,10 +2,6 @@ import { Header } from '@/components/Header';
 import { Settings, Shield, Bell, Calendar as CalendarIcon, Clock, Zap, Monitor, Lock, LogOut, ChevronRight, Database, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
-// Atualmente ela ainda usa firebase/firestore diretamente.
-import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'; // TODO: Refatorar
-import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { googleCalendarService, GCalDiagnosticResult } from '@/services/googleCalendar';
 import { useNavigate } from 'react-router-dom';
@@ -29,9 +25,11 @@ function GoogleCalendarSettings() {
 
   useEffect(() => {
     if (!user) return;
-    const unsub = onSnapshot(doc(db, 'users', user.id), (docsnap) => {
-      if (docsnap.exists()) setUserData(docsnap.data());
-    });
+    
+    // Call the newly implemented user endpoint
+    apiClient.get('/usuarios/me').then(({ data }) => {
+       setUserData(data);
+    }).catch(console.error);
     
     userPreferencesService.getPreferences(user.id).then(p => {
        setPrefs(p?.googleCalendar || {
@@ -41,8 +39,6 @@ function GoogleCalendarSettings() {
          autoImportExternalEvents: true
        });
     });
-
-    return () => unsub();
   }, [user]);
 
   useEffect(() => {
@@ -307,13 +303,13 @@ export function Configuracoes() {
       setPreferences(prefs);
     });
 
-    const unsub = onSnapshot(doc(db, 'users', user.id), (snapshot) => {
-      if (snapshot.exists()) {
-        setUserData(snapshot.data());
-      }
+    apiClient.get('/usuarios/me').then(({ data }) => {
+      setUserData(data);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
       setLoading(false);
     });
-    return () => unsub();
   }, [user]);
 
   const handleLogout = async () => {

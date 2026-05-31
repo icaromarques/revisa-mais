@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-// TODO: A refatoração completa deste hook para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { doc, onSnapshot } from 'firebase/firestore'; // TODO: Refatorar
+// TODO: Backend api endpoints need to be implemented for this to work.
 import { apiClient } from '@/lib/api';
 
 export function useRestWindow() {
@@ -12,15 +9,27 @@ export function useRestWindow() {
 
   useEffect(() => {
     if (!user) return;
-    const unsub = onSnapshot(doc(db, 'users', user.id), (docS) => {
-      if (docS.exists()) {
-        const data = docS.data();
-        if (data.settings?.restWindow) {
-          setRestWindow(data.settings.restWindow);
-        }
-      }
-    });
-    return () => unsub();
+    
+    let isMounted = true;
+    const fetchSettings = async () => {
+       try {
+          const { data } = await apiClient.get('/usuarios/perfil');
+          if (isMounted && data?.settings?.restWindow) {
+             setRestWindow(data.settings.restWindow);
+          }
+       } catch(e) {
+          console.error("Failed to fetch user settings for rest window", e);
+       }
+    };
+    
+    fetchSettings();
+    // Setting up polling as we don't have onSnapshot anymore
+    const interval = setInterval(fetchSettings, 60000); 
+
+    return () => {
+        isMounted = false;
+        clearInterval(interval);
+    };
   }, [user]);
 
   const isInRestWindow = (timeStr: string) => {

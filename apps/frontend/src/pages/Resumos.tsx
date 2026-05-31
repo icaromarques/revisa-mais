@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { FileText, Plus, BrainCircuit, Trash2, Edit2, Search } from 'lucide-react';
-// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
-// Atualmente ela ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy } from 'firebase/firestore'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -32,39 +28,31 @@ export function Resumos() {
     if (!user) return;
     
     // Fetch Materias
-    const unsubMaterias = onSnapshot(query(collection(db, 'materias'), where('user_id', '==', user.id)), (snap) => {
+    apiClient.get('/materias').then(({ data }) => {
       const map:any = {};
       const arr:any = [];
-      snap.docs.forEach(d => {
-         map[d.id] = d.data().nome;
-         arr.push({id: d.id, ...d.data()});
+      data.forEach((m: any) => {
+         map[m.id] = m.nome;
+         arr.push(m);
       });
       setMateriasMap(map);
       setMateriasObj(arr);
-    });
+    }).catch(console.error);
 
     // Fetch Topicos
-    const unsubTopicos = onSnapshot(query(collection(db, 'topicos'), where('user_id', '==', user.id)), (snap) => {
-      setTopicosObj(snap.docs.map(d => ({id: d.id, ...d.data()})));
+    apiClient.get('/topicos').then(({ data }) => {
+      setTopicosObj(data);
+    }).catch(console.error);
+
+    // Endpoint for resumos doesn't exist yet but we simulate fetching them 
+    apiClient.get('/resumos').then(({ data }) => {
+      setResumos(data);
+      setLoading(false);
+    }).catch(() => {
+       setResumos([]);
+       setLoading(false);
     });
 
-    const q = query(
-      collection(db, 'resumos'),
-      where('user_id', '==', user.id),
-      orderBy('created_at', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setResumos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
-    }, (error) => {
-      console.error(error);
-      setLoading(false);
-    });
-    return () => {
-       unsubscribe();
-       unsubMaterias();
-       unsubTopicos();
-    }
   }, [user]);
 
   const handleOpenNew = () => {
@@ -96,17 +84,12 @@ export function Resumos() {
       };
 
       if (editingResumo) {
-        await updateDoc(doc(db, 'resumos', editingResumo.id), {
-          ...payload,
-          updated_at: new Date().toISOString()
-        });
+        await apiClient.put(`/resumos/${editingResumo.id}`, payload);
         toast.success('Resumo atualizado!');
       } else {
-        await addDoc(collection(db, 'resumos'), {
+        await apiClient.post('/resumos', {
           ...payload,
-          user_id: user.id,
-          origem: 'manual',
-          created_at: new Date().toISOString()
+          origem: 'manual'
         });
         toast.success('Resumo criado!');
       }
@@ -149,8 +132,9 @@ export function Resumos() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, 'resumos', id));
+          await apiClient.delete(`/resumos/${id}`);
           toast.success('Resumo excluído!');
+          apiClient.get('/resumos').then(({ data }) => setResumos(data));
         } catch (err) {
           console.error(err);
           toast.error('Erro ao excluir resumo.');

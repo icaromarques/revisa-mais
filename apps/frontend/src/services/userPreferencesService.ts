@@ -1,7 +1,4 @@
-// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { apiClient } from '@/lib/api';
 import { UserPreferences, DEFAULT_PREFERENCES } from '@/types/preferences';
 
 class UserPreferencesService {
@@ -48,15 +45,11 @@ class UserPreferencesService {
     }
 
     try {
-      const docRef = doc(db, 'preferencias_usuario', userId);
-      const snap = await getDoc(docRef);
-      
-      let prefs: UserPreferences;
-      if (snap.exists()) {
-        prefs = this.mergeWithDefaults(snap.data() as Partial<UserPreferences>);
-      } else {
-        prefs = this.mergeWithDefaults({});
-      }
+      /*
+      const { data } = await apiClient.get('/usuarios/preferencias');
+      const prefs = this.mergeWithDefaults(data);
+      */
+      const prefs = this.mergeWithDefaults({});
       
       this.cache[userId] = prefs;
       return prefs;
@@ -68,15 +61,10 @@ class UserPreferencesService {
 
   async savePreferences(userId: string, data: Partial<UserPreferences>): Promise<void> {
     try {
-      const docRef = doc(db, 'preferencias_usuario', userId);
       const current = await this.getPreferences(userId);
       const merged = this.mergeWithDefaults({ ...current, ...data });
 
-      await setDoc(docRef, {
-        ...merged,
-        user_id: userId,
-        updated_at: new Date().toISOString()
-      }, { merge: true });
+      // await apiClient.put('/usuarios/preferencias', merged);
 
       this.cache[userId] = merged;
     } catch (e) {

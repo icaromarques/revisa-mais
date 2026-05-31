@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileText, Link as LinkIcon, Video, File, Globe, Book, MessageSquare, Save, Mic, Image as ImageIcon, FileArchive, Info, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
 import { apiClient } from '@/lib/api';
-import { db } from '@/lib/firebase'; // TODO: Refatorar no próximo passo
-import { getDocs, query, collection, where } from 'firebase/firestore'; // TODO: Refatorar no próximo passo
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { materialService } from '@/services/materialService';
@@ -67,14 +63,8 @@ export function ModalNovoMaterial({
     async function fetchSessoes() {
       if (!user || !materiaId) return;
       try {
-        const q = query(
-          collection(db, 'sessoes'), 
-          where('user_id', '==', user.id),
-          where('materia_id', '==', materiaId)
-        );
-        const snap = await getDocs(q);
-        const fetched = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        // sort by most recent 
+        const { data } = await apiClient.get(`/sessoes?materia_id=${materiaId}`);
+        const fetched = data || [];
         fetched.sort((a: any, b: any) => {
            const da = new Date(a.data_registro || a.created_at || 0).getTime();
            const dbDate = new Date(b.data_registro || b.created_at || 0).getTime();
@@ -160,24 +150,10 @@ export function ModalNovoMaterial({
       }
 
       if (materialToEdit) {
-        await materialService.updateMaterial(materialToEdit.id, payload);
-
-        // Sync bidirectional relations: Find removed sessions
-        const oldSessions = materialToEdit.linked_session_ids || [];
-        const added = selectedSessions.filter(s => !oldSessions.includes(s));
-        const removed = oldSessions.filter((s: string) => !selectedSessions.includes(s));
-        
-        for (const addedId of added) { await materialService.linkMaterialToSession(materialToEdit.id, addedId); }
-        for (const removedId of removed) { await materialService.unlinkMaterialFromSession(materialToEdit.id, removedId); }
-        
+        await apiClient.put(`/materiais/${materialToEdit.id}`, payload);
         toast.success("Material atualizado!");
       } else {
-        const newMatId = await materialService.createMaterial(payload);
-        if (newMatId) {
-           for (const sessionId of selectedSessions) {
-               await materialService.linkMaterialToSession(newMatId, sessionId);
-           }
-        }
+        await apiClient.post(`/materiais`, payload);
         toast.success("Material criado com sucesso!");
       }
       onClose();

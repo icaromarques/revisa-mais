@@ -1,7 +1,5 @@
-// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { doc, getDoc, updateDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: Backend api endpoints need to be implemented for this to work.
+import { apiClient } from '@/lib/api';
 import { toast } from '@/lib/toast';
 
 export type GoalCategory = 'horas_estudo' | 'revisoes' | 'questoes' | 'constancia' | 'materia' | 'personalizada';
@@ -41,24 +39,38 @@ export interface UserProfileSchema {
 
 export const userProfileService = {
   subscribe(userId: string, callback: (data: UserProfileSchema | null) => void) {
-    return onSnapshot(doc(db, 'users', userId), (snap) => {
-      if (snap.exists()) {
-        callback(snap.data() as UserProfileSchema);
-      } else {
-        callback(null);
+    let currentData: UserProfileSchema | null = null;
+    
+    // Polling simulation since we don't have websocket/sse yet
+    const intervalId = setInterval(async () => {
+      try {
+        const { data } = await apiClient.get('/usuarios/perfil');
+        if (JSON.stringify(data) !== JSON.stringify(currentData)) {
+          currentData = data;
+          callback(data);
+        }
+      } catch (e) {
+        console.error("Erro ao buscar perfil do usuário:", e);
+        // Do nothing, just try again next interval
       }
-    });
+    }, 60000);
+    
+    // Initial fetch
+    apiClient.get('/usuarios/perfil')
+      .then(({ data }) => {
+        currentData = data;
+        callback(data);
+      })
+      .catch((e) => {
+        console.error("Erro no fetch inicial do perfil:", e);
+      });
+
+    return () => clearInterval(intervalId);
   },
 
   async updateProfile(userId: string, data: Partial<UserProfileSchema>) {
     try {
-      const docRef = doc(db, 'users', userId);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        await updateDoc(docRef, { ...data, updated_at: new Date().toISOString() });
-      } else {
-        await setDoc(docRef, { ...data, updated_at: new Date().toISOString() }, { merge: true });
-      }
+      await apiClient.patch('/usuarios/perfil', data);
     } catch (e) {
       console.error(e);
       throw e;
@@ -66,26 +78,29 @@ export const userProfileService = {
   },
 
   async addGoal(userId: string, goal: Omit<StudyGoal, 'id' | 'status'>) {
-    const docRef = doc(db, 'users', userId);
-    const snap = await getDoc(docRef);
-    const goals = (snap.data()?.goals as StudyGoal[]) || [];
-    const newGoals = [...goals, { ...goal, id: crypto.randomUUID(), status: 'active' as const }];
-    await this.updateProfile(userId, { goals: newGoals });
+     try {
+       await apiClient.post('/usuarios/perfil/goals', goal);
+     } catch(e) {
+       console.error("Failed to add goal", e);
+       throw e;
+     }
   },
 
   async updateGoal(userId: string, goalId: string, updates: Partial<StudyGoal>) {
-    const docRef = doc(db, 'users', userId);
-    const snap = await getDoc(docRef);
-    const goals = (snap.data()?.goals as StudyGoal[]) || [];
-    const newGoals = goals.map(g => g.id === goalId ? { ...g, ...updates } : g);
-    await this.updateProfile(userId, { goals: newGoals });
+    try {
+      await apiClient.patch(`/usuarios/perfil/goals/${goalId}`, updates);
+    } catch(e) {
+      console.error("Failed to update goal", e);
+      throw e;
+    }
   },
 
   async deleteGoal(userId: string, goalId: string) {
-    const docRef = doc(db, 'users', userId);
-    const snap = await getDoc(docRef);
-    const goals = (snap.data()?.goals as StudyGoal[]) || [];
-    const newGoals = goals.filter(g => g.id !== goalId);
-    await this.updateProfile(userId, { goals: newGoals });
+     try {
+       await apiClient.delete(`/usuarios/perfil/goals/${goalId}`);
+     } catch(e) {
+       console.error("Failed to delete goal", e);
+       throw e;
+     }
   }
 };

@@ -8,8 +8,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { openMaterial, parseValidDate, safeFormat, formatDuration } from '@/lib/utils';
 import { toast } from '@/lib/toast';
-import { doc, updateDoc, deleteField } from 'firebase/firestore'; // TODO: Refatorar
-import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { getPerformanceClass } from '@/lib/performanceUtils';
 import { cn } from '@/lib/utils';
@@ -125,9 +123,8 @@ export function TopicosTab({
       try {
         const novoValor = anotacaoForm.trim();
 
-        await updateDoc(doc(db, 'topicos', t.id), {
-          observacoes: novoValor,
-          updated_at: new Date().toISOString()
+        await apiClient.put(`/topicos/${t.id}`, {
+          observacoes: novoValor
         });
 
         setSelectedTopico((prev: any) =>
@@ -144,9 +141,8 @@ export function TopicosTab({
 
     const handleDeleteAnotacao = async () => {
       try {
-        await updateDoc(doc(db, 'topicos', t.id), {
-          observacoes: deleteField(),
-          updated_at: new Date().toISOString()
+        await apiClient.put(`/topicos/${t.id}`, {
+          observacoes: null
         });
 
         setSelectedTopico((prev: any) =>

@@ -2,10 +2,6 @@ import { parseValidDate } from '@/lib/utils';
 import { Header } from '@/components/Header';
 import { History, Filter, Play, CheckCircle2, Edit2, Trash2, CalendarIcon, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
-// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
-// Atualmente ela ainda usa firebase/firestore diretamente.
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'; // TODO: Refatorar
-import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -31,43 +27,25 @@ export function Revisoes() {
   useEffect(() => {
     if (!user) return;
 
-    // Fetch Materias
-    const qMaterias = query(collection(db, 'materias'), where('user_id', '==', user.id));
-    const unsubMaterias = onSnapshot(qMaterias, (snapshot) => {
+    apiClient.get('/materias').then(({ data }) => {
       const map: Record<string, string> = {};
-      snapshot.docs.forEach(docSnap => {
-        map[docSnap.id] = docSnap.data().nome;
-      });
+      data.forEach((m: any) => { map[m.id] = m.nome; });
       setMateriasMap(map);
-    });
+    }).catch(console.error);
 
-    // Fetch Topicos
-    const qTopicos = query(collection(db, 'topicos'), where('user_id', '==', user.id));
-    const unsubTopicos = onSnapshot(qTopicos, (snapshot) => {
+    apiClient.get('/topicos').then(({ data }) => {
       const map: Record<string, string> = {};
-      snapshot.docs.forEach(docSnap => {
-        map[docSnap.id] = docSnap.data().nome;
-      });
+      data.forEach((t: any) => { map[t.id] = t.nome; });
       setTopicosMap(map);
-    });
+    }).catch(console.error);
 
-    // Fetch all Revisoes
-    const qRevisoes = query(
-      collection(db, 'revisoes'), 
-      where('user_id', '==', user.id),
-      orderBy('data_prevista', 'asc')
-    );
-    const unsubRevisoes = onSnapshot(qRevisoes, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    apiClient.get('/revisoes').then(({ data }) => {
       setRevisoes(data);
       setLoading(false);
+    }).catch((err) => {
+      console.error(err);
+      setLoading(false);
     });
-
-    return () => {
-      unsubMaterias();
-      unsubTopicos();
-      unsubRevisoes();
-    };
   }, [user]);
 
   const handleOpenNew = () => {
@@ -93,19 +71,19 @@ export function Revisoes() {
     try {
       const savedData = {
          ...form,
-         user_id: user.id,
          data_prevista: form.data_prevista ? new Date(form.data_prevista).toISOString() : null,
       };
 
       if (editingRevisao) {
-          await revisaoService.updateRevisao(editingRevisao.id, savedData);
+          await apiClient.put(`/revisoes/${editingRevisao.id}`, savedData);
           toast.success("Revisão atualizada e sincronizada!");
       } else {
          savedData.tipo_intervalo = form.tipo_intervalo || 'manual';
-         await revisaoService.createRevisao(savedData);
+         await apiClient.post('/revisoes', savedData);
          toast.success("Revisão criada e agendada!");
       }
       setIsModalOpen(false);
+      apiClient.get('/revisoes').then(({ data }) => setRevisoes(data));
     } catch (error) {
       console.error("Erro ao salvar revisão:", error);
       toast.error("Erro ao salvar revisão.");
@@ -117,12 +95,11 @@ export function Revisoes() {
   const handleConcluir = async (revisao: any) => {
     try {
       const isConcluida = revisao.status === 'concluida';
-      await revisaoService.updateRevisao(revisao.id, {
-        ...revisao,
+      await apiClient.patch(`/revisoes/${revisao.id}/status`, {
         status: isConcluida ? 'pendente' : 'concluida',
-        data_realizada: isConcluida ? null : new Date().toISOString()
       });
       toast.success(isConcluida ? 'Revisão reaberta!' : 'Revisão concluída!');
+      apiClient.get('/revisoes').then(({ data }) => setRevisoes(data));
     } catch (error) {
       console.error("Erro ao concluir revisão:", error);
       toast.error("Erro ao concluir revisão.");
@@ -138,8 +115,9 @@ export function Revisoes() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await revisaoService.deleteRevisao(id, user.id);
+          await apiClient.delete(`/revisoes/${id}`);
           toast.success("Revisão excluída");
+          apiClient.get('/revisoes').then(({ data }) => setRevisoes(data));
         } catch (err) {
           console.error(err);
           toast.error("Erro ao excluir revisão");

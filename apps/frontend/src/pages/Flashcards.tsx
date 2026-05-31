@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Layers, Plus, BrainCircuit, Edit2, Trash2, Search } from 'lucide-react';
-// TODO: A refatoração completa desta página para usar apiClient foi adiada. 
-// Atualmente ela ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc, addDoc, orderBy } from 'firebase/firestore'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -33,19 +29,13 @@ export function Flashcards() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(
-      collection(db, 'decks'),
-      where('user_id', '==', user.id),
-      orderBy('created_at', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setDecks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    apiClient.get('/revisoes/decks').then(({ data }) => {
+      setDecks(data);
       setLoading(false);
-    }, (error) => {
+    }).catch((error) => {
       console.error(error);
       setLoading(false);
     });
-    return () => unsubscribe();
   }, [user]);
 
   const handleOpenNew = () => {
@@ -65,23 +55,22 @@ export function Flashcards() {
     setSaving(true);
     try {
       if (editingDeck) {
-        await updateDoc(doc(db, 'decks', editingDeck.id), {
+        await apiClient.put(`/revisoes/decks/${editingDeck.id}`, {
           nome: form.nome,
           descricao: form.descricao,
-          updated_at: new Date().toISOString()
         });
         toast.success('Deck atualizado!');
       } else {
-        await addDoc(collection(db, 'decks'), {
-          user_id: user.id,
+        await apiClient.post('/revisoes/decks', {
           nome: form.nome,
           descricao: form.descricao,
-          origem: 'manual',
-          cards_count: 0,
-          created_at: new Date().toISOString()
+          origem: 'manual'
         });
         toast.success('Deck criado!');
       }
+      
+      // Update UI
+      apiClient.get('/revisoes/decks').then(({ data }) => setDecks(data));
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
@@ -100,9 +89,9 @@ export function Flashcards() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await cascadeDeleteService.deleteDeckAndDerivates(id, user.id);
-          await deleteDoc(doc(db, 'decks', id));
+          await apiClient.delete(`/revisoes/decks/${id}`);
           toast.success('Deck excluído!');
+          apiClient.get('/revisoes/decks').then(({ data }) => setDecks(data));
         } catch (err) {
           console.error(err);
           toast.error('Erro ao excluir deck.');

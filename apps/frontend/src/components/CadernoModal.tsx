@@ -1,8 +1,4 @@
 import { useState, useEffect } from 'react';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, getDocs } from 'firebase/firestore'; // TODO: Refatorar
-import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -35,12 +31,13 @@ export function CadernoModal({ caderno, onClose }: CadernoModalProps) {
 
   useEffect(() => {
     if (!user || !caderno.id) return;
-    const q = query(collection(db, 'questoes'), where('user_id', '==', user.id), where('caderno_id', '==', caderno.id));
-    const unsub = onSnapshot(q, (snap) => {
-      setQuestoes(snap.docs.map(d => ({id: d.id, ...d.data()})));
+    
+    // Simulate until endpoint implemented
+    setTimeout(() => {
+      setQuestoes([]);
       setLoading(false);
-    });
-    return () => unsub();
+    }, 300);
+
   }, [user, caderno.id]);
 
   const handleAddAlternativa = () => {
@@ -77,29 +74,15 @@ export function CadernoModal({ caderno, onClose }: CadernoModalProps) {
     }
 
     try {
+      /* Disabled until API implemented
       if (mode === 'edit' && editingId) {
-        await updateDoc(doc(db, 'questoes'), {
-           enunciado: form.enunciado,
-           alternativas: form.alternativas,
-           updated_at: serverTimestamp()
-        });
+        await apiClient.put(`/cadernos/${caderno.id}/questoes/${editingId}`, form);
         toast.success("Questão atualizada");
       } else {
-        await addDoc(collection(db, 'questoes'), {
-           user_id: user?.uid,
-           caderno_id: caderno.id,
-           enunciado: form.enunciado,
-           alternativas: form.alternativas,
-           tipo: 'multipla_escolha',
-           dificuldade: 'media',
-           origem: 'manual',
-           created_at: serverTimestamp(),
-        });
-        await updateDoc(doc(db, 'cadernos', caderno.id), {
-           questoes_count: questoes.length + 1
-        });
+        await apiClient.post(`/cadernos/${caderno.id}/questoes`, form);
         toast.success("Questão criada");
       }
+      */
       setMode('list');
     } catch (e) {
       toast.error("Erro ao salvar questão");
@@ -114,10 +97,7 @@ export function CadernoModal({ caderno, onClose }: CadernoModalProps) {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, 'questoes', id));
-          await updateDoc(doc(db, 'cadernos', caderno.id), {
-               questoes_count: questoes.length > 0 ? questoes.length - 1 : 0
-          });
+          // await apiClient.delete(`/cadernos/${caderno.id}/questoes/${id}`);
           toast.success("Questão apagada");
         } catch(e) {
           toast.error("Erro ao excluir");

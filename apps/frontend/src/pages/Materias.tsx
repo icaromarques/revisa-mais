@@ -88,15 +88,28 @@ export function Materias() {
     let isMounted = true;
     const fetchAll = async () => {
        try {
-         const [{data: mats}, evts, {data: ocs}] = await Promise.all([
-           apiClient.get('/materias'),
-           calendarService.fetchUserEvents(user.id),
-           apiClient.get('/ocorrencias')
-         ]);
+         // Transform Promise.all into individual calls or Promise.allSettled to not fail entirely
+         let mats = [];
+         let evts = [];
+         let ocs = [];
+         
+         try {
+           const resMats = await apiClient.get('/materias');
+           mats = resMats.data;
+         } catch(e) { console.warn("Failed to fetch materias", e); }
+
+         try {
+           evts = await calendarService.fetchUserEvents(user.id);
+         } catch(e) { console.warn("Failed to fetch events", e); }
+         
+         try {
+           const resOcs = await apiClient.get('/ocorrencias');
+           ocs = resOcs.data;
+         } catch(e) { console.warn("Failed to fetch ocorrencias", e); }
          
          if (isMounted) {
            setMaterias(mats);
-           setEvents(evts.filter(e => e.data_inicio && !isNaN(new Date(e.data_inicio).getTime())));
+           setEvents(evts.filter((e: any) => e && e.data_inicio && !isNaN(new Date(e.data_inicio).getTime())));
            setOcorrencias(ocs);
          }
        } catch (error) {

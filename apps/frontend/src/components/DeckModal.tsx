@@ -1,8 +1,4 @@
 import { useState, useEffect } from 'react';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from 'firebase/firestore'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
@@ -33,39 +29,30 @@ export function DeckModal({ deck, onClose }: DeckModalProps) {
 
   useEffect(() => {
     if (!user || !deck.id) return;
-    const q = query(collection(db, 'flashcards'), where('user_id', '==', user.id), where('deck_id', '==', deck.id));
-    const unsub = onSnapshot(q, (snap) => {
-      setCards(snap.docs.map(d => ({id: d.id, ...d.data()})));
+    apiClient.get(`/revisoes/decks/${deck.id}/cards`).then(({ data }) => {
+      setCards(data);
       setLoading(false);
-    });
-    return () => unsub();
+    }).catch(console.error);
   }, [user, deck.id]);
 
   const handleSaveCard = async () => {
     if (!form.frente.trim() || !form.verso.trim()) return;
     try {
       if (mode === 'edit' && editingId) {
-        await updateDoc(doc(db, 'flashcards', editingId), {
+        await apiClient.put(`/revisoes/decks/${deck.id}/cards/${editingId}`, {
            frente: form.frente,
-           verso: form.verso,
-           updated_at: serverTimestamp()
+           verso: form.verso
         });
         toast.success("Card atualizado");
       } else {
-        await addDoc(collection(db, 'flashcards'), {
-           user_id: user?.uid,
-           deck_id: deck.id,
+        await apiClient.post(`/revisoes/decks/${deck.id}/cards`, {
            frente: form.frente,
-           verso: form.verso,
-           created_at: serverTimestamp(),
-        });
-        // Update cards_count on deck
-        await updateDoc(doc(db, 'decks', deck.id), {
-           cards_count: cards.length + 1
+           verso: form.verso
         });
         toast.success("Card criado");
       }
       setMode('list');
+      apiClient.get(`/revisoes/decks/${deck.id}/cards`).then(({ data }) => setCards(data));
     } catch (e) {
       toast.error("Erro ao salvar card");
     }
@@ -79,11 +66,9 @@ export function DeckModal({ deck, onClose }: DeckModalProps) {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, 'flashcards', id));
-          await updateDoc(doc(db, 'decks', deck.id), {
-               cards_count: cards.length > 0 ? cards.length - 1 : 0
-          });
+          await apiClient.delete(`/revisoes/decks/${deck.id}/cards/${id}`);
           toast.success("Card apagado");
+          apiClient.get(`/revisoes/decks/${deck.id}/cards`).then(({ data }) => setCards(data));
         } catch(e) {
           toast.error("Erro ao excluir");
         }

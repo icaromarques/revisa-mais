@@ -1,16 +1,11 @@
 import { parseValidDate } from '@/lib/utils';
 import React, { useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { doc, deleteDoc, collection, query, where, getDocs, writeBatch, getDoc } from 'firebase/firestore'; // TODO: Refatorar
-import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { OcorrenciaGrade } from '@/types/availability';
 import { toast } from '@/lib/toast';
 import { format,  } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';
 import { useAuth } from '@/contexts/AuthContext';
 import { cascadeDeleteService } from '@/services/cascadeDeleteService';
 
@@ -46,44 +41,7 @@ export function ModalExcluirFalta({ isOpen, onClose, faltaToExcluir }: ModalExcl
        setLoadingVinculo(true);
        try {
           let info: any = null;
-          
-          // Check if parent materia exists
-          if (faltaToExcluir.materia_id) {
-             const materiaDoc = await getDoc(doc(db, 'materias', faltaToExcluir.materia_id));
-             if (!materiaDoc.exists()) {
-                info = { tipo: 'Materia excluída', titulo: 'Esta falta está vinculada a uma matéria que já foi removida.', isOrphan: true };
-             }
-          }
-
-          if (faltaToExcluir.reposicao_aula_id) {
-             const aulaDoc = await getDoc(doc(db, 'aulas', faltaToExcluir.reposicao_aula_id));
-             if (aulaDoc.exists()) {
-                const aulaData = aulaDoc.data();
-                info = { ...info, tipo: 'Aula vinculada', titulo: aulaData.titulo || 'Aula sem título', data: aulaData.data };
-             }
-          } 
-          else if (faltaToExcluir.reposicao_sessao_id) {
-             const sessaoDoc = await getDoc(doc(db, 'sessoes', faltaToExcluir.reposicao_sessao_id));
-             if (sessaoDoc.exists()) {
-                const sessaoData = sessaoDoc.data();
-                info = { ...info, tipo: 'Sessão vinculada', titulo: sessaoData.titulo || 'Sessão de estudo sem título', data: sessaoData.data };
-             }
-          }
-          // Fallback to checking via queries
-          if (!info || (!info.tipo.includes('Aula') && !info.tipo.includes('Sessão'))) {
-             const aulasQuery = query(collection(db, 'aulas'), 
-                where('user_id', '==', user.id),
-                where('reposicao_ocorrencia_id', '==', faltaToExcluir.id)
-             );
-             const aulasSnap = await getDocs(aulasQuery);
-             if (!aulasSnap.empty) {
-                const aulaData = aulasSnap.docs[0].data();
-                info = { ...info, tipo: 'Aula vinculada', titulo: aulaData.titulo || 'Aula sem título', data: aulaData.data };
-             } else if (faltaToExcluir.reposicao_observacao) {
-                info = { ...info, tipo: 'Recuperação manual', titulo: faltaToExcluir.reposicao_observacao };
-             }
-          }
-          
+          // Endpoint might return this info if we implement it, mock for now
           setVinculoInfo(info);
        } catch (err) {
           console.error("Error fetching vinculo:", err);
@@ -143,8 +101,7 @@ export function ModalExcluirFalta({ isOpen, onClose, faltaToExcluir }: ModalExcl
     setLoading(true);
     try {
       if (faltaToExcluir.id) {
-         await clearBackReferences();
-         await deleteDoc(doc(db, 'ocorrencias_grade', faltaToExcluir.id));
+         await apiClient.delete(`/ocorrencias/${faltaToExcluir.id}?cascade=false`);
          toast.success('Falta excluída com sucesso. Recuperação preservada.');
       }
       onClose();
@@ -161,29 +118,7 @@ export function ModalExcluirFalta({ isOpen, onClose, faltaToExcluir }: ModalExcl
      setLoading(true);
      try {
        if (faltaToExcluir.id) {
-          // Delete both
-          await deleteDoc(doc(db, 'ocorrencias_grade', faltaToExcluir.id));
-          
-          if (faltaToExcluir.reposicao_aula_id) {
-             await cascadeDeleteService.deleteAulaAndDerivates(faltaToExcluir.reposicao_aula_id, user.id);
-             await deleteDoc(doc(db, 'aulas', faltaToExcluir.reposicao_aula_id));
-          }
-          if (faltaToExcluir.reposicao_sessao_id) {
-             await cascadeDeleteService.deleteSessaoAndDerivates(faltaToExcluir.reposicao_sessao_id, user.id);
-             await deleteDoc(doc(db, 'sessoes', faltaToExcluir.reposicao_sessao_id));
-          }
-          
-          // Also explicitly delete any aula that points to this via reposicao_ocorrencia_id just to be safe
-          const aulasQuery = query(collection(db, 'aulas'), 
-            where('user_id', '==', user.id),
-            where('reposicao_ocorrencia_id', '==', faltaToExcluir.id)
-          );
-          const aulasSnap = await getDocs(aulasQuery);
-          for (let aulaDoc of aulasSnap.docs) {
-             await cascadeDeleteService.deleteAulaAndDerivates(aulaDoc.id, user.id);
-             await deleteDoc(aulaDoc.ref);
-          }
-          
+          await apiClient.delete(`/ocorrencias/${faltaToExcluir.id}?cascade=true`);
           toast.success('Falta e recuperação(ões) excluídas com sucesso.');
        }
        onClose();

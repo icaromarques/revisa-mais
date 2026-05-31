@@ -1,17 +1,5 @@
-// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  writeBatch, 
-  doc, 
-  getDoc,
-  serverTimestamp 
-} from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';
+// TODO: Backend api endpoints need to be implemented for this to work.
+import { apiClient } from '@/lib/api';
 import { normalizeColorId } from '@/lib/colors';
 
 export type IntegrityIssueType = 
@@ -292,121 +280,12 @@ export const integrityService = {
   },
 
   async repairIssues(userId: string, issues: IntegrityIssue[]): Promise<number> {
-    let repairedCount = 0;
-    const batch = writeBatch(db);
-    
-    // Group issues by document to avoid multiple writes to same doc in batch
-    const docUpdates: Record<string, { coll: string, updates: any }> = {};
-    const docDeletes: string[] = [];
-    const docCreates: { coll: string, id: string, data: any }[] = [];
-
-    for (const issue of issues) {
-      if (!issue.isRepairable) continue;
-
-      const key = `${issue.collection}/${issue.id}`;
-      // Do not create an update if it's going to be deleted
-      if (issue.collection === 'faltas_materias') {
-         const docRef = doc(db, issue.collection, issue.id);
-         const docSnap = await getDoc(docRef);
-         if (!docSnap.exists()) continue;
-         const data = docSnap.data();
-
-         // Create new ocorrencia_grade
-         docCreates.push({
-           coll: 'ocorrencias_grade',
-           id: docRef.id, // Using same push ID or standard UUID
-           data: {
-             user_id: userId,
-             materia_id: data.materia_id,
-             data_ocorrencia: data.data_registro || data.data_falta || new Date().toISOString(),
-             status: 'falta',
-             tipo_falta: data.justificada ? 'com_atestado' : 'sem_atestado',
-             quantidade_ocorrencias: typeof data.quantidade === 'number' ? data.quantidade : 1,
-             origem: 'retroativa',
-             criado_em: data.created_at || serverTimestamp(),
-             updated_at: serverTimestamp()
-           }
-         });
-         docDeletes.push(key);
-         repairedCount++;
-         continue;
+      try {
+          const { data } = await apiClient.post('/admin/integrity/repair', { issues });
+          return data.repairedCount;
+      } catch(e) {
+          console.error("Failed to repair issues", e);
+          throw e;
       }
-
-      if (!docUpdates[key]) docUpdates[key] = { coll: issue.collection, updates: { updated_at: serverTimestamp() } };
-      
-      const docRef = doc(db, issue.collection, issue.id);
-      const docSnap = await getDoc(docRef);
-      if (!docSnap.exists()) continue;
-      const data = docSnap.data();
-
-      switch (issue.type) {
-        case 'orphan':
-          if (issue.metadata?.field === 'materia_id') docUpdates[key].updates.materia_id = null;
-          if (issue.metadata?.field === 'topico_id') docUpdates[key].updates.topico_id = null;
-          if (issue.metadata?.field === 'linked_material_ids') {
-             const currentIds = data.linked_material_ids || [];
-             const invalid = issue.metadata.invalidIds || [];
-             docUpdates[key].updates.linked_material_ids = currentIds.filter((id: string) => !invalid.includes(id));
-          }
-          break;
-        case 'duplicate':
-          if (issue.metadata?.field) {
-            const current = data[issue.metadata.field] || [];
-            if (Array.isArray(current)) {
-              docUpdates[key].updates[issue.metadata.field] = Array.from(new Set(current.filter(Boolean)));
-            }
-          }
-          break;
-        case 'legacy_format':
-          if (issue.metadata?.field === 'cor' && issue.collection === 'materias') {
-             docUpdates[key].updates.cor = normalizeColorId(data.cor);
-          } else if (issue.metadata?.field === 'material_id') {
-             const currentIds = data.linked_material_ids || [];
-             if (!currentIds.includes(data.material_id)) {
-               docUpdates[key].updates.linked_material_ids = [...currentIds, data.material_id];
-             }
-             docUpdates[key].updates.material_id = null;
-          }
-          break;
-      }
-      repairedCount++;
-    }
-
-    // Apply batches (Firestore limit is 500 ops)
-    // Coalescing updates, creates and deletes into flat ops array
-    type BatchOp = 
-      | { type: 'update', ref: any, data: any }
-      | { type: 'set', ref: any, data: any }
-      | { type: 'delete', ref: any };
-      
-    const ops: BatchOp[] = [];
-
-    Object.entries(docUpdates).forEach(([key, val]) => {
-      if (docDeletes.includes(key)) return; // Skip if marked for deletion
-      const [coll, id] = key.split('/');
-      ops.push({ type: 'update', ref: doc(db, coll, id), data: val.updates });
-    });
-
-    docCreates.forEach(c => {
-      ops.push({ type: 'set', ref: doc(db, c.coll, c.id), data: c.data });
-    });
-
-    docDeletes.forEach(key => {
-      const [coll, id] = key.split('/');
-      ops.push({ type: 'delete', ref: doc(db, coll, id) });
-    });
-
-    for (let i = 0; i < ops.length; i += 500) {
-       const subBatch = writeBatch(db);
-       const chunk = ops.slice(i, i + 500);
-       chunk.forEach(op => {
-         if (op.type === 'update') subBatch.update(op.ref, op.data);
-         else if (op.type === 'set') subBatch.set(op.ref, op.data);
-         else if (op.type === 'delete') subBatch.delete(op.ref);
-       });
-       await subBatch.commit();
-    }
-
-    return repairedCount;
   }
 };

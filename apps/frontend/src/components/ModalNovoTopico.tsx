@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, BrainCircuit, Star, Hash, AlignLeft, Calendar } from 'lucide-react';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { addDoc, collection, doc, updateDoc } from 'firebase/firestore'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
@@ -38,13 +34,11 @@ export function ModalNovoTopico({ isOpen, onClose, topicoAtual, materiaId }: Mod
   useEffect(() => {
     if (isOpen && materiaId && !topicoAtual) {
       // Auto-fill form professor from materia if new topic
-      import('firebase/firestore').then(({ doc, getDoc }) => {
-         getDoc(doc(db, 'materias', materiaId)).then(snap => {
-            if (snap.exists() && snap.data().professor && !userEditedProfessor) {
-               setForm(f => ({...f, professor: snap.data().professor}));
-            }
-         });
-      });
+      apiClient.get(`/materias/${materiaId}`).then(res => {
+          if (res.data && res.data.professor && !userEditedProfessor) {
+             setForm(f => ({...f, professor: res.data.professor}));
+          }
+      }).catch(console.error);
     }
   }, [isOpen, materiaId, topicoAtual, userEditedProfessor]);
 
@@ -86,13 +80,12 @@ export function ModalNovoTopico({ isOpen, onClose, topicoAtual, materiaId }: Mod
       };
 
       if (topicoAtual?.id) {
-        await updateDoc(doc(db, 'topicos', topicoAtual.id), topicoData);
+        await apiClient.put(`/topicos/${topicoAtual.id}`, topicoData);
         toast.success("Tópico atualizado com sucesso!");
       } else {
-        await addDoc(collection(db, 'topicos'), {
+        await apiClient.post('/topicos', {
           ...topicoData,
           status: 'em_andamento', // compatibility
-          created_at: new Date().toISOString()
         });
         toast.success("Tópico criado com sucesso!");
       }

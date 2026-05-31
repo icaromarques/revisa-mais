@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore'; // TODO: Refatorar
-import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
@@ -41,12 +37,16 @@ export function ModalRecuperarFalta({ isOpen, onClose, faltaToRecuperar }: Modal
       });
       
       const fetchRelated = async () => {
-         const qAulas = query(collection(db, 'aulas'), where('user_id', '==', user.id), where('materia_id', '==', faltaToRecuperar.materia_id));
-         const qSessoes = query(collection(db, 'sessoes'), where('user_id', '==', user.id), where('materia_id', '==', faltaToRecuperar.materia_id));
-         
-         const [sAulas, sSessoes] = await Promise.all([getDocs(qAulas), getDocs(qSessoes)]);
-         setAulas(sAulas.docs.map(d => ({id: d.id, ...d.data()})));
-         setSessoes(sSessoes.docs.map(d => ({id: d.id, ...d.data()})));
+         try {
+            const [aulasRes, sessoesRes] = await Promise.all([
+               apiClient.get(`/aulas?materia_id=${faltaToRecuperar.materia_id}`),
+               apiClient.get(`/sessoes?materia_id=${faltaToRecuperar.materia_id}`)
+            ]);
+            setAulas(aulasRes.data || []);
+            setSessoes(sessoesRes.data || []);
+         } catch (e) {
+            console.error(e);
+         }
       };
       fetchRelated();
     }
@@ -79,7 +79,7 @@ export function ModalRecuperarFalta({ isOpen, onClose, faltaToRecuperar }: Modal
           payload.reposicao_sessao_id = null;
        }
 
-       await updateDoc(doc(db, 'ocorrencias_grade', faltaToRecuperar.id!), payload);
+       await apiClient.patch(`/ocorrencias/${faltaToRecuperar.id}`, payload);
        toast.success('Falta atualizada com sucesso!');
        onClose();
     } catch(err) {

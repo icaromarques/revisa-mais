@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import { EventoAcademico } from '@/types/calendar';
 import { Plus, Trash2, Edit2, CheckCircle, Target, Award, ChevronDown, ChevronUp } from 'lucide-react';
-import { db } from '@/lib/firebase'; // TODO: Refatorar
-import { addDoc, updateDoc, deleteDoc, doc, collection, query, where, getDocs } from 'firebase/firestore'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { availabilityService } from '@/services/availabilityService';
 import { toast } from '@/lib/toast';
 import { parseValidDate } from '@/lib/utils';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { handleFirestoreError, OperationType } from '@/lib/firestoreErrorHandler';
 import { getCalendarRenderKey } from '@/lib/calendar-utils';
 
 interface AvaliacoesNotasTabProps {
@@ -64,10 +61,10 @@ export function AvaliacoesNotasTab({ materia, notas, events }: AvaliacoesNotasTa
       };
 
       if (editingNota) {
-        await updateDoc(doc(db, 'notas_materia', editingNota.id), payload);
+        await apiClient.put(`/notas/${editingNota.id}`, payload);
         toast.success("Nota atualizada com sucesso");
       } else {
-        await addDoc(collection(db, 'notas_materia'), payload);
+        await apiClient.post('/notas', payload);
         toast.success("Nota registrada com sucesso");
       }
       setIsModalOpen(false);
@@ -115,7 +112,7 @@ export function AvaliacoesNotasTab({ materia, notas, events }: AvaliacoesNotasTa
       message: 'Deseja realmente excluir esta nota?',
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, 'notas_materia', id));
+          await apiClient.delete(`/notas/${id}`);
           toast.success("Nota excluída");
         } catch(e) {
           toast.error("Erro ao excluir");
@@ -130,7 +127,7 @@ export function AvaliacoesNotasTab({ materia, notas, events }: AvaliacoesNotasTa
       message: `Deseja atualizar a situação acadêmica da matéria para '${newStatus}'?`,
       onConfirm: async () => {
         try {
-          await updateDoc(doc(db, 'materias', materia.id), { status: newStatus });
+          await apiClient.patch(`/materias/${materia.id}`, { status: newStatus });
           toast.success("Status atualizado!");
 
           if (['aprovada', 'concluida'].includes(newStatus)) {
@@ -140,9 +137,9 @@ export function AvaliacoesNotasTab({ materia, notas, events }: AvaliacoesNotasTa
               onConfirm: async () => {
                 if (!user) return;
                 try {
-                  const q = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.id), where('materia_id', '==', materia.id));
-                  const snap = await getDocs(q);
-                  await Promise.all(snap.docs.map(d => availabilityService.deleteGradeFaculdade(d.id, user.id)));
+                  const grades = await availabilityService.getGradeFaculdade(user.id);
+                  const gradesToDel = grades.filter((g: any) => g.materia_id === materia.id);
+                  await Promise.all(gradesToDel.map((d: any) => availabilityService.deleteGradeFaculdade(d.id, user.id)));
                   toast.success("Horários da grade removidos.");
                 } catch(e) {
                   toast.error("Erro ao remover horários: " + String(e));

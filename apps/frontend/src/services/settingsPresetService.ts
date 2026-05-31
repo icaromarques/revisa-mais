@@ -1,8 +1,6 @@
 import { UserPreferences } from '@/types/preferences';
-// TODO: A refatoração completa deste serviço para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// TODO: Backend api endpoints need to be implemented for this to work.
+import { apiClient } from '@/lib/api';
 import { userPreferencesService } from './userPreferencesService';
 
 export type PresetId = 'leve' | 'equilibrado' | 'intensivo' | 'pre_prova' | 'personalizado';
@@ -162,16 +160,14 @@ export class SettingsPresetService {
 
     const updates: Record<string, any> = {};
     if (preset.settings.showRevisionSuggestion !== undefined) {
-      updates['settings.showRevisionSuggestion'] = preset.settings.showRevisionSuggestion;
+      updates['showRevisionSuggestion'] = preset.settings.showRevisionSuggestion;
     }
     if (preset.settings.intelligentRevision) {
-      updates['settings.intelligentRevision.active'] = preset.settings.intelligentRevision.active;
-      updates['settings.intelligentRevision.mode'] = preset.settings.intelligentRevision.mode;
-      updates['settings.intelligentRevision.sensitivity'] = preset.settings.intelligentRevision.sensitivity;
+      updates['intelligentRevision'] = preset.settings.intelligentRevision;
     }
 
     if (Object.keys(updates).length > 0) {
-      await updateDoc(doc(db, 'users', userId), updates);
+      await apiClient.patch('/usuarios/perfil/settings', updates);
     }
   }
 

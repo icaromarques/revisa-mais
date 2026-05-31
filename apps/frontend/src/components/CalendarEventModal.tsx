@@ -6,10 +6,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { calendarService } from '@/services/calendarService';
 import { googleCalendarService } from '@/services/googleCalendar';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'; // TODO: Refatorar
-import { db } from '@/lib/firebase'; // TODO: Refatorar
 import { apiClient } from '@/lib/api';
 import { useRestWindow } from '@/hooks/useRestWindow';
 import { parseValidDate } from '@/lib/utils';
@@ -70,13 +66,12 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
     async function fetchData() {
       if (!user) return;
       try {
-        const mQuery = query(collection(db, 'materias'), where('user_id', '==', user.id));
-        const mSnap = await getDocs(mQuery);
-        setMaterias(mSnap.docs.map(d => ({id: d.id, ...d.data()})));
-        
-        const tQuery = query(collection(db, 'topicos'), where('user_id', '==', user.id));
-        const tSnap = await getDocs(tQuery);
-        setTopicos(tSnap.docs.map(d => ({id: d.id, ...d.data()})));
+        const [mRes, tRes] = await Promise.all([
+           apiClient.get('/materias'),
+           apiClient.get('/topicos')
+        ]);
+        setMaterias(mRes.data || []);
+        setTopicos(tRes.data || []);
 
         const isConn = await googleCalendarService.isConnected();
         setIsGcalConnected(isConn);

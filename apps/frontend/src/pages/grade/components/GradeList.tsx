@@ -34,8 +34,9 @@ export function GradeList({ grade, materias = [], onEdit }: Props) {
       onConfirm: async () => {
         if (!user) return;
         try {
-          await availabilityService.deleteGradeFaculdade(id, user.id);
+          await apiClient.delete(`/disponibilidade/grade_faculdade/${id}`);
           toast.success("Horário excluído!");
+          window.location.reload();
         } catch (error) {
           toast.error("Erro ao excluir horário.");
         }
@@ -47,8 +48,9 @@ export function GradeList({ grade, materias = [], onEdit }: Props) {
     e.stopPropagation();
     try {
       if(!item.id) return;
-      await availabilityService.updateGradeFaculdade(item.id, { ativo: !item.ativo });
+      await apiClient.put(`/disponibilidade/grade_faculdade/${item.id}`, { ativo: !item.ativo });
       toast.success(item.ativo ? "Horário pausado" : "Horário ativado");
+      window.location.reload();
     } catch {
       toast.error("Erro ao atualizar");
     }

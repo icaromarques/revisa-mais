@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import { X, Edit2, BrainCircuit, AlertCircle, FileText, Video, File, Link as LinkIcon, Clock, Play, CheckCircle, CalendarIcon, Bookmark, Trash2, Mic, Image as ImageIcon } from 'lucide-react';
-import { format, addDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-// TODO: A refatoração completa deste modal para usar apiClient foi adiada. 
-// Atualmente ele ainda usa firebase/firestore diretamente.
-import { db } from '@/lib/firebase'; // TODO: Refatorar no próximo passo
 import { parseValidDate, safeFormat, formatDuration } from '@/lib/utils';
-import { addDoc, collection, updateDoc, doc } from 'firebase/firestore'; // TODO: Refatorar no próximo passo
-import { apiClient } from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/lib/toast';
 import { openMaterial } from '@/lib/utils';
 
@@ -136,16 +128,14 @@ export function AulaDetalheModal({
     if (!user) return;
     setIsGenerating(true);
     try {
-      await addDoc(collection(db, 'questoes'), {
-        user_id: user.id,
+      await apiClient.post('/questoes', {
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,
         enunciado: 'Questão gerada a partir da aula: ' + aula.titulo,
         tipo: 'multipla_escolha',
         dificuldade: 'media',
-        origem: 'ia_aula',
-        created_at: new Date().toISOString()
+        origem: 'ia_aula'
       });
       toast.success('Questões geradas com sucesso!');
     } catch (err) {
@@ -160,16 +150,14 @@ export function AulaDetalheModal({
     if (!user) return;
     setIsScheduling(true);
     try {
-      await addDoc(collection(db, 'revisoes'), {
-        user_id: user.id,
+      await apiClient.post('/revisoes', {
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,
         nome: `Revisão: ${aula.titulo}`,
         data_prevista: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
         status: 'pendente',
-        origem: 'manual',
-        created_at: new Date().toISOString()
+        origem: 'manual'
       });
       toast.success('Revisão agendada para amanhã!');
     } catch (err) {
@@ -184,15 +172,13 @@ export function AulaDetalheModal({
     if (!user) return;
     setIsScheduling(true);
     try {
-      await addDoc(collection(db, 'eventos_academicos'), {
-        user_id: user.id,
+      await apiClient.post('/eventos', {
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,
-        tipo: 'estudo',
+        tipo: 'sessao_estudo',
         titulo: `Estudar: ${aula.titulo}`,
-        data_inicio: new Date().toISOString(),
-        created_at: new Date().toISOString()
+        data_inicio: new Date().toISOString()
       });
       toast.success('Adicionado ao planner!');
     } catch (err) {
