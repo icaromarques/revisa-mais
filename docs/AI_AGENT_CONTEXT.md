@@ -1,88 +1,70 @@
-# 🤖 Revisa+ AI Agent Context
+# 🤖 AI Agent Strict Context (Rulebook)
 
-**Attention AI Agents (Google Gemini, Antigravity, Cursor, etc.):** 
-Read this file completely BEFORE making any architectural changes, creating new features, or refactoring code. This file contains the absolute truth about the current state of the Revisa+ project.
+**CRITICAL:** Read this file AND `docs/ARCHITECTURE.md` completely BEFORE making any architectural changes, creating new features, or refactoring code. 
 
----
-
-## 1. Project Identity & Guidelines
-- **Language Requirements:** You MUST respond to the user in **Brazilian Portuguese (PT-BR)**.
-- **Code Comments:** All comments written inside the code MUST be in **English**.
-- **Quality Assurance:** You MUST always execute linting (`npm run lint` in frontend) and build processes to ensure TypeScript correctness before declaring a task as done.
-- **Target Audience:** The creator (Lívia) is a beginner who relies on AI to build. Be pedagogical when she asks, but execute with senior-level architectural strictness.
+You are working on **Revisa+**, a modern EdTech app. The user who created this is an intelligent beginner; they rely on you to be the **Senior Full-Stack Architect**. You must execute commands flawlessly while maintaining strict architectural boundaries.
 
 ---
 
-## 2. Architecture & Tech Stack
-
-The project transitioned from a Firebase-only (Frontend-direct-to-database) architecture to a robust **Full-Stack Monorepo**.
-
-### Environment
-- **Monorepo:** Managed via npm workspaces.
-- **Root `package.json`** orchestrates `apps/frontend` and `apps/backend`.
-
-### Frontend (`apps/frontend/`)
-- **Framework:** React 19 + Vite 6.
-- **Language:** TypeScript (Strict mode).
-- **Styling:** Tailwind CSS v4, Framer Motion for animations.
-- **Authentication:** Firebase Auth (Client-side). Used ONLY to obtain the Google OAuth Token, which is then sent to the backend.
-- **API Communication:** Axios/Fetch wrapper (`apps/frontend/src/lib/api.ts`). We intercept requests to inject the Firebase `idToken` in the `Authorization: Bearer <token>` header.
-- **State Management:** React Context API and local state.
-
-### Backend (`apps/backend/`)
-- **Runtime:** Node.js + Express.js.
-- **Language:** TypeScript.
-- **Database ORM:** Prisma (`@prisma/client`).
-- **Database Provider:** PostgreSQL (Hosted on Supabase).
-- **Security:** Helmet, CORS, Firebase Admin SDK (`express` middleware to validate JWT tokens from the frontend).
-- **Architecture:** 
-  - `routes/`: Define Express endpoints.
-  - `controllers/`: Handle business logic and Prisma interactions.
-  - `middlewares/`: Security (e.g., `requireAuth.ts`).
-  - `utils/`: Mappers (e.g., converting Prisma's `camelCase` to Frontend's expected `snake_case` using `responseMapper.ts`).
+## 1. Absolute Rules
+1. **Language:** Communicate with the user in **Brazilian Portuguese (PT-BR)**. Write code comments/docs in **English**.
+2. **No Mocks:** The user **hates mocks/stubs**. All features MUST be fully functional, backed by Prisma, and persist to the PostgreSQL database.
+3. **Formatting:** NEVER use markdown blocks inside markdown blocks (e.g., nesting code fences incorrectly).
+4. **Validation:** Always run lint (`npm run lint` in frontend) and build (`npm run build` in backend) before declaring a task as finished.
 
 ---
 
-## 3. The Great Migration (Context)
-
-Initially, the frontend directly manipulated Firestore documents. **This has been completely eradicated.** 
-- All data persistence now happens via the Express backend saving to PostgreSQL via Prisma.
-- **Do NOT** use `getFirestore`, `doc`, `setDoc`, `onSnapshot` anywhere in the frontend for business data.
-- **Database Schema:** The source of truth is `apps/backend/prisma/schema.prisma`. 
-
----
-
-## 4. How to Add a New Feature
-
-If you are asked to create a new feature (e.g., "Add a tagging system to flashcards"), you MUST follow this flow:
-
-1.  **Database (Prisma):** 
-    - Update `apps/backend/prisma/schema.prisma`.
-    - Provide instructions or execute `npx prisma migrate dev --name <feature_name>` to apply changes.
-2.  **Backend Logic:**
-    - Create/Update the Controller (`apps/backend/src/controllers/...`).
-    - Expose the route in `apps/backend/src/routes/...`.
-    - Mount the route in `apps/backend/src/index.ts` if it's a new domain.
-    - Ensure `req.params.id` is parsed correctly (use `asString` utility from `responseMapper.ts` due to Express 5 type strictness).
-    - Map the Prisma output to snake_case using `toSnakeCase()` if expected by the frontend.
-3.  **Frontend Logic:**
-    - Create the API call in the respective service or directly in the component using the `api` client (`lib/api.ts`).
-    - Update the UI to render the new feature.
-4.  **Verification:**
-    - Run `cd apps/backend && npm run build` to verify backend typing.
-    - Run `cd apps/frontend && npm run lint` to verify frontend typing.
+## 2. Tech Stack Boundaries
+- **Monorepo:** Organized with `npm` workspaces. `apps/frontend/` and `apps/backend/`.
+- **Frontend:** React 19, Vite, Tailwind v4. It must ONLY communicate with the Backend via REST API (using the wrapper in `apps/frontend/src/lib/api.ts`).
+- **Backend:** Node.js, Express, Prisma.
+- **Database:** PostgreSQL. All schema changes MUST happen in `apps/backend/prisma/schema.prisma`.
 
 ---
 
-## 5. Deployment Setup
-- **Frontend:** Deployed on Vercel.
-- **Backend:** Deployed on Render (Web Service). Uses build command: `npm install && npx prisma generate && npx prisma migrate deploy && npm run build`.
-- **Database:** Supabase PostgreSQL. 
+## 3. Strict Coding Conventions
+
+### A. Express 5 & Typescript
+We use Express 5 with strict TypeScript. `req.params.id` is typed as `string | string[] | undefined`.
+**DO NOT** pass `req.params.id` directly to Prisma.
+**DO** use the mapper utility:
+```typescript
+import { asString } from '../utils/responseMapper';
+const id = asString(req.params.id);
+// Now use `id` safely in Prisma queries.
+```
+
+### B. Snake Case vs Camel Case
+- Prisma uses `camelCase` (e.g., `materiaId`, `createdAt`).
+- The Frontend expects `snake_case` JSON payloads (e.g., `materia_id`, `created_at`).
+**DO NOT** manually map objects in every controller.
+**DO** use the mapper utility before returning responses:
+```typescript
+import { toSnakeCase } from '../utils/responseMapper';
+res.json(toSnakeCase(materia)); // Automatically deep-converts keys to snake_case
+```
+
+### C. No Firebase Client DB
+- Firebase is ONLY used for Authentication (`signInWithPopup`).
+- **NEVER** import or use `getFirestore`, `doc`, `setDoc`, `onSnapshot` in the frontend. All data operations MUST go through the Node.js backend.
+
+### D. Timezones and Dates
+- Always use `date-fns` for date manipulation. Do not rely on native `Date` math (like `date.getTime() + 86400000`).
 
 ---
 
-## 6. Strict Rules & Gotchas
-- **Express 5 Types:** `req.params.id` can be typed as `string | string[]`. Always cast it or use the utility `asString(req.params.id)` before passing it to Prisma.
-- **Date Handling:** We use `date-fns`. Always ensure timezone-aware operations, especially for the "Grade" and "Sessões" features.
-- **Frontend Mocks:** DO NOT CREATE MOCKS. The user explicitly hates mocks. Always connect the frontend to the real backend API.
-- **Deployment Build:** The backend's `package.json` must have essential packages (like `date-fns`) in `dependencies`, not relying entirely on hoisted monorepo dependencies, because Render isolates the build.
+## 4. Standard Workflow for New Features
+When asked to create a new feature (e.g., "Add a tagging system"), execute these steps in order:
+
+1. **Database:** Edit `schema.prisma`. Add the new model/fields. Tell the user to run `npx prisma migrate dev --name feature_name` (or you run it using a shell tool).
+2. **Backend Controller:** Create `feature.controller.ts`. Write CRUD operations using Prisma. Remember to use `asString` and `toSnakeCase`.
+3. **Backend Routes:** Create `feature.routes.ts`, protect with `requireAuth` middleware, and mount it in `index.ts`.
+4. **Frontend API:** Add the endpoint calls in `apps/frontend/src/lib/api.ts` or directly in a service file.
+5. **Frontend UI:** Build the React components using Tailwind CSS. Use `lucide-react` for icons.
+
+---
+
+## 5. Deployment Info
+- Backend builds on **Render.com**. It uses `npm install && npx prisma generate && npx prisma migrate deploy && npm run build`.
+- Missing dependencies in the backend `package.json` (like `date-fns`) will break the Render build because it isolates the workspace. Ensure all backend imports are explicitly in `apps/backend/package.json`.
+- Frontend builds on **Vercel** (`vite build`). SPA routing is handled by `vercel.json`.
