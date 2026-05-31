@@ -24,7 +24,8 @@ O Supabase oferece um PostgreSQL gerenciado excelente e com interface amigável.
    - Você verá uma URL parecida com: 
      `postgresql://postgres.[sua-ref]:[YOUR-PASSWORD]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`
    - Copie essa URL. Lembre-se de substituir `[YOUR-PASSWORD]` pela senha que você acabou de criar no passo 3. Essa será a sua `DATABASE_URL` no Backend.
-   - **MUITO IMPORTANTE:** Ao colar essa URL no Render, adicione `?pgbouncer=true&connection_limit=1` no final dela. Sem isso, o Prisma pode falhar na hora de criar as tabelas (migrate) no Render.
+   - **MUITO IMPORTANTE:** Ao criar a senha do banco, use apenas **letras e números**. Caracteres especiais como `+`, `@`, `/` ou `#` na senha quebram a URL de conexão se não forem codificados.
+   - **MUITO IMPORTANTE 2:** Ao colar essa URL no Render, adicione `?pgbouncer=true&connection_limit=1` no final dela. Sem isso, o Prisma pode falhar na hora de criar as tabelas (migrate) no Render.
 
 *(Não é necessário criar as tabelas manualmente no Supabase. O nosso backend com o comando `npx prisma migrate deploy` fará isso automaticamente para você!).*
 
