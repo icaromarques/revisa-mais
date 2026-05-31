@@ -7,8 +7,10 @@ const router = Router({ mergeParams: true }); // mergeParams para pegar materiaI
 router.use(requireAuth);
 
 router.get('/', topicoController.getTopicos);
+router.post('/', topicoController.createTopicoDirect);
 router.get('/materia/:materiaId', topicoController.getTopicosByMateria);
 router.post('/materia/:materiaId', topicoController.createTopico);
+router.put('/:id', topicoController.updateTopico);
 router.delete('/:id', topicoController.deleteTopico);
 router.patch('/:id/dominio', topicoController.updateDominio);
 

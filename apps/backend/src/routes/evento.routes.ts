@@ -8,6 +8,7 @@ router.use(requireAuth);
 
 router.post('/', eventoController.createEvento);
 router.get('/', eventoController.getEventos);
+router.patch('/:id', eventoController.updateEvento);
 router.delete('/:id', eventoController.deleteEvento);
 
 export default router;

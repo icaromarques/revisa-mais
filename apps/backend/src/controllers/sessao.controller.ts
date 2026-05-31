@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
+import { asString, queryString } from '../utils/responseMapper';
 
 export const sessaoController = {
   async registerSessao(req: Request, res: Response) {
@@ -42,14 +43,17 @@ export const sessaoController = {
   async getSessoes(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const { start, end, materia_id } = req.query;
+      const q = req.query as Record<string, unknown>;
+      const start = queryString(q, 'start');
+      const end = queryString(q, 'end');
+      const materia_id = queryString(q, 'materia_id');
 
       const whereClause: any = { userId };
       
       if (start || end) {
         whereClause.createdAt = {};
-        if (start) whereClause.createdAt.gte = new Date(start as string);
-        if (end) whereClause.createdAt.lte = new Date(end as string);
+        if (start) whereClause.createdAt.gte = new Date(start);
+        if (end) whereClause.createdAt.lte = new Date(end);
       }
       
       if (materia_id) {
@@ -75,7 +79,7 @@ export const sessaoController = {
   async getSessaoById(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const { id } = req.params;
+      const id = asString(req.params.id);
       
       const sessao = await prisma.sessaoEstudo.findUnique({
         where: { id },
@@ -99,7 +103,7 @@ export const sessaoController = {
   async deleteSessao(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const { id } = req.params;
+      const id = asString(req.params.id);
 
       const sessao = await prisma.sessaoEstudo.findUnique({ where: { id } });
       if (!sessao || sessao.userId !== userId) {
@@ -117,7 +121,7 @@ export const sessaoController = {
   async updateSessao(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const { id } = req.params;
+      const id = asString(req.params.id);
       const { materia_id, topico_id, titulo, tipo, tempo_estudado_segundos, dificuldade, professor, total_questoes, acertos, notas } = req.body;
 
       const sessao = await prisma.sessaoEstudo.findUnique({ where: { id } });
@@ -151,15 +155,16 @@ export const sessaoController = {
   async getHistoricoSessoes(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      // Podemos aceitar range de datas (timeMin, timeMax) na query
-      const { start, end } = req.query;
+      const q = req.query as Record<string, unknown>;
+      const start = queryString(q, 'start');
+      const end = queryString(q, 'end');
 
       const whereClause: any = { userId };
       
       if (start || end) {
         whereClause.createdAt = {};
-        if (start) whereClause.createdAt.gte = new Date(start as string);
-        if (end) whereClause.createdAt.lte = new Date(end as string);
+        if (start) whereClause.createdAt.gte = new Date(start);
+        if (end) whereClause.createdAt.lte = new Date(end);
       }
 
       const sessoes = await prisma.sessaoEstudo.findMany({

@@ -1,70 +1,27 @@
 import { Router } from 'express';
+import { userController } from '../controllers/user.controller';
+import { notificacaoController } from '../controllers/resource.controller';
 import { requireAuth } from '../middlewares/auth';
-import { prisma } from '../config/prisma';
 
 const router = Router();
-
 router.use(requireAuth);
 
-router.get('/perfil', async (req, res) => {
-  try {
-    const userId = (req as any).user.id;
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
-    
-    // Default payload para não dar crash
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      picture: user.picture,
-      preferences: {},
-      goals: []
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar perfil' });
-  }
-});
+router.get('/me', userController.getMe);
+router.get('/perfil', userController.getPerfil);
+router.patch('/perfil', userController.updatePerfil);
+router.patch('/perfil/settings', userController.updateSettings);
+router.get('/perfil/analytics', userController.getAnalytics);
+router.post('/perfil/goals', userController.addGoal);
+router.patch('/perfil/goals/:goalId', userController.updateGoal);
+router.delete('/perfil/goals/:goalId', userController.deleteGoal);
+router.get('/preferencias', userController.getPreferencias);
+router.put('/preferencias', userController.updatePreferencias);
 
-router.get('/preferencias', async (req, res) => {
-  try {
-    const userId = (req as any).user.id;
-    // Default mock preferences
-    res.json({
-      theme: 'system',
-      notifications: true,
-      studyTimer: { pomodoro: 25, shortBreak: 5, longBreak: 15 }
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar preferências' });
-  }
-});
-
-router.get('/me', async (req, res) => {
-  try {
-    const userId = (req as any).user.id;
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar me' });
-  }
-});
-
-router.get('/notificacoes', async (req, res) => {
-  res.json([]);
-});
-
-router.patch('/perfil', async (req, res) => {
-  try {
-    const userId = (req as any).user.id;
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: req.body
-    });
-    res.json(updated);
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao atualizar perfil' });
-  }
-});
+router.get('/notificacoes', notificacaoController.list);
+router.post('/notificacoes/sync', notificacaoController.syncFromModules);
+router.patch('/notificacoes/read-all', notificacaoController.markAllRead);
+router.patch('/notificacoes/:id/read', notificacaoController.markRead);
+router.patch('/notificacoes/:id/status', notificacaoController.updateStatus);
+router.delete('/notificacoes/old', notificacaoController.removeOld);
 
 export default router;

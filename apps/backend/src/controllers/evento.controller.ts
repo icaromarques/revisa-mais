@@ -1,26 +1,33 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
+import { asString, bodyField, queryString, toSnakeCase } from '../utils/responseMapper';
 
 export const eventoController = {
   async getEventos(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      // Idealmente, recebe `start` e `end` para filtrar o calendário
-      const { start, end } = req.query;
+      const q = req.query as Record<string, unknown>;
+      const start = queryString(q, 'start');
+      const end = queryString(q, 'end');
+      const materiaId = queryString(q, 'materiaId') || queryString(q, 'materia_id');
+      const aula_id = queryString(q, 'aula_id');
 
       const whereClause: any = { userId };
       
       if (start && end) {
-        whereClause.dataInicio = { gte: new Date(start as string) };
-        whereClause.dataFim = { lte: new Date(end as string) };
+        whereClause.dataInicio = { gte: new Date(start) };
+        whereClause.dataFim = { lte: new Date(end) };
       }
+      if (materiaId) whereClause.materiaId = materiaId;
+      if (aula_id) whereClause.aulaId = aula_id;
 
       const eventos = await prisma.eventoAcademico.findMany({
         where: whereClause,
-        include: { materia: { select: { nome: true, cor: true } } }
+        include: { materia: { select: { nome: true, cor: true } } },
+        orderBy: { dataInicio: 'asc' }
       });
 
-      res.json(eventos);
+      res.json(eventos.map((e) => toSnakeCase(e)));
     } catch (error) {
       res.status(500).json({ error: 'Erro ao buscar eventos' });
     }
@@ -31,34 +38,70 @@ export const eventoController = {
       const userId = (req as any).user.id;
       const data = req.body;
 
-      // 1. Criar evento no nosso banco
+      const dataInicio = data.data_inicio || data.dataInicio;
+      const dataFim = data.data_fim || data.dataFim || dataInicio;
+
       const evento = await prisma.eventoAcademico.create({
         data: {
           userId,
           titulo: data.titulo,
-          descricao: data.descricao,
+          descricao: data.descricao || null,
           tipo: data.tipo || 'evento',
-          dataInicio: new Date(data.dataInicio),
-          dataFim: new Date(data.dataFim),
-          diaInteiro: data.diaInteiro || false,
-          materiaId: data.materiaId || null,
-          cor: data.cor || null
+          dataInicio: new Date(dataInicio),
+          dataFim: new Date(dataFim),
+          diaInteiro: data.dia_inteiro || data.diaInteiro || false,
+          materiaId: data.materia_id || data.materiaId || null,
+          aulaId: data.aula_id || data.aulaId || null,
+          cor: data.cor || null,
+          concluido: data.concluido ?? false
         }
       });
 
-      // 2. Acionar a sincronização com Google Calendar se o usuário tiver autorizado
-      // (Isso chamaria nosso worker/webhook configurado na fase de Integração Google)
-
-      res.status(201).json(evento);
+      res.status(201).json(toSnakeCase(evento));
     } catch (error) {
+      console.error(error);
       res.status(500).json({ error: 'Erro ao criar evento' });
+    }
+  },
+
+  async updateEvento(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const id = asString(req.params.id);
+      const body = req.body;
+
+      const evento = await prisma.eventoAcademico.findFirst({ where: { id, userId } });
+      if (!evento) return res.status(404).json({ error: 'Evento não encontrado' });
+
+      const updated = await prisma.eventoAcademico.update({
+        where: { id },
+        data: {
+          titulo: bodyField<string>(body, 'titulo') ?? evento.titulo,
+          descricao: bodyField<string>(body, 'descricao') ?? evento.descricao,
+          tipo: bodyField<string>(body, 'tipo') ?? evento.tipo,
+          dataInicio: body.data_inicio || body.dataInicio
+            ? new Date(body.data_inicio || body.dataInicio)
+            : evento.dataInicio,
+          dataFim: body.data_fim || body.dataFim
+            ? new Date(body.data_fim || body.dataFim)
+            : evento.dataFim,
+          concluido: bodyField<boolean>(body, 'concluido') ?? evento.concluido,
+          materiaId: bodyField<string>(body, 'materiaId', 'materia_id') ?? evento.materiaId,
+          aulaId: bodyField<string>(body, 'aulaId', 'aula_id') ?? evento.aulaId
+        }
+      });
+
+      res.json(toSnakeCase(updated));
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao atualizar evento' });
     }
   },
 
   async deleteEvento(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const { id } = req.params;
+      const id = asString(req.params.id);
 
       const evento = await prisma.eventoAcademico.findFirst({
         where: { id, userId }
@@ -66,10 +109,6 @@ export const eventoController = {
 
       if (!evento) return res.status(404).json({ error: 'Evento não encontrado' });
 
-      // 1. Acionar exclusão no Google Calendar (se existir googleEventId)
-      // ...
-
-      // 2. Deletar do banco
       await prisma.eventoAcademico.delete({ where: { id } });
 
       res.json({ success: true });

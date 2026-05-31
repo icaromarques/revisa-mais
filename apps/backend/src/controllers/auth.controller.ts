@@ -4,6 +4,37 @@ import { prisma } from '../config/prisma';
 import { google } from 'googleapis';
 import jwt from 'jsonwebtoken';
 
+async function syncGoogleProfilePicture(userId: string, picture: string | null | undefined) {
+  if (!picture) return;
+
+  const existingProfile = await prisma.userProfile.findUnique({ where: { userId } });
+  const shouldUpdate =
+    !existingProfile?.fotoUrl ||
+    existingProfile.fotoUrl.includes('googleusercontent.com') ||
+    existingProfile.fotoUrl.includes('ggpht.com');
+
+  if (!shouldUpdate) return;
+
+  await prisma.userProfile.upsert({
+    where: { userId },
+    create: { userId, fotoUrl: picture },
+    update: { fotoUrl: picture }
+  });
+}
+
+async function fetchGooglePicture(refreshToken: string | null | undefined): Promise<string | null> {
+  if (!refreshToken) return null;
+  try {
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    const oauth2 = google.oauth2({ auth: oauth2Client, version: 'v2' });
+    const userInfo = await oauth2.userinfo.get();
+    return userInfo.data.picture || null;
+  } catch (error) {
+    console.warn('Could not fetch Google profile picture:', error);
+    return null;
+  }
+}
+
 export const authController = {
   // Gera a URL para o usuário clicar e ir para o Google
   getAuthUrl(req: Request, res: Response) {
@@ -35,6 +66,7 @@ export const authController = {
       const email = userInfo.data.email!;
       const googleId = userInfo.data.id!;
       const nome = userInfo.data.name || 'Usuário';
+      const picture = userInfo.data.picture || null;
 
       // 3. Busca ou cria o usuário no nosso banco (PostgreSQL)
       const user = await prisma.user.upsert({
@@ -57,6 +89,8 @@ export const authController = {
           gcalTokenStatus: 'active'
         }
       });
+
+      await syncGoogleProfilePicture(user.id, picture);
 
       // 4. Cria o JWT para o Frontend (Session Cookie)
       const sessionToken = jwt.sign(
@@ -84,7 +118,6 @@ export const authController = {
 
   // Retorna os dados da sessão atual
   async getSession(req: Request, res: Response) {
-    // Esse endpoint passará pelo middleware 'requireAuth'
     const userId = (req as any).user.id;
     
     const user = await prisma.user.findUnique({
@@ -93,12 +126,32 @@ export const authController = {
         id: true,
         nome: true,
         email: true,
-        gcalConnected: true
+        gcalConnected: true,
+        googleRefreshToken: true,
+        profile: { select: { fotoUrl: true } }
       }
     });
 
     if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ user });
+
+    let fotoUrl = user.profile?.fotoUrl || null;
+    if (!fotoUrl) {
+      const picture = await fetchGooglePicture(user.googleRefreshToken);
+      if (picture) {
+        await syncGoogleProfilePicture(user.id, picture);
+        fotoUrl = picture;
+      }
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        gcalConnected: user.gcalConnected,
+        fotoUrl
+      }
+    });
   },
 
   // Faz logout limpando o cookie
