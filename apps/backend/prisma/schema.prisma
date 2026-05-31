@@ -72,6 +72,7 @@ model Materia {
   revisoes         Revisao[]
   resumos          Resumo[]
   eventos          EventoAcademico[]
+  sessoesEstudo    SessaoEstudo[]
 
   @@map("materias")
 }
@@ -110,10 +111,18 @@ model SessaoEstudo {
   userId                String   @map("user_id")
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   materiaId             String?  @map("materia_id")
+  materia               Materia? @relation(fields: [materiaId], references: [id], onDelete: SetNull)
   topicoId              String?  @map("topico_id")
   topico                Topico?  @relation(fields: [topicoId], references: [id], onDelete: SetNull)
-  tipo                  String   @default("pomodoro") // pomodoro, cronometro, manual
+  tipo                  String   @default("pomodoro") // pomodoro, cronometro, manual, estudo_novo, revisao
+  origemSessao          String?  @map("origem_sessao")
+  titulo                String?
   tempoEstudadoSegundos Int      @map("tempo_estudado_segundos")
+  dificuldade           Int?
+  professor             String?
+  totalQuestoes         Int?     @map("total_questoes")
+  acertos               Int?
+  notas                 String?  @db.Text
   createdAt             DateTime @default(now()) @map("created_at")
 
   @@map("sessoes_estudo")

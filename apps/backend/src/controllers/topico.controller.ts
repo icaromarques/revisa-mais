@@ -2,6 +2,30 @@ import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
 
 export const topicoController = {
+  async getTopicos(req: Request, res: Response) {
+    try {
+      const { materia_id } = req.query;
+      const userId = (req as any).user.id;
+
+      let whereClause: any = { materia: { userId } };
+      
+      if (materia_id) {
+        whereClause.materiaId = materia_id as string;
+      }
+
+      const topicos = await prisma.topico.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: { select: { revisoes: true, resumos: true } }
+        }
+      });
+      res.json(topicos);
+    } catch (error) {
+      res.status(500).json({ error: 'Erro ao buscar tópicos' });
+    }
+  },
+
   async getTopicosByMateria(req: Request, res: Response) {
     try {
       const { materiaId } = req.params;

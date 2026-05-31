@@ -16,6 +16,9 @@ import eventoRoutes from './routes/evento.routes';
 import scheduleRoutes from './routes/schedule.routes';
 import webhookRoutes from './routes/webhook.routes';
 import aiRoutes from './routes/ai.routes';
+import userRoutes from './routes/user.routes';
+import ocorrenciaRoutes from './routes/ocorrencia.routes';
+import materialRoutes from './routes/material.routes';
 
 dotenv.config();
 
@@ -45,6 +48,9 @@ app.use('/api/eventos', eventoRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/usuarios', userRoutes);
+app.use('/api/ocorrencias', ocorrenciaRoutes);
+app.use('/api/materiais', materialRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });

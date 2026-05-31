@@ -6,6 +6,7 @@ const router = Router({ mergeParams: true }); // mergeParams para pegar materiaI
 
 router.use(requireAuth);
 
+router.get('/', topicoController.getTopicos);
 router.get('/materia/:materiaId', topicoController.getTopicosByMateria);
 router.post('/materia/:materiaId', topicoController.createTopico);
 router.delete('/:id', topicoController.deleteTopico);

@@ -38,9 +38,6 @@ export function Planner() {
 
   useEffect(() => {
     if (!user) return;
-    
-    // Fire and forget GCal Sync
-    googleCalendarService.syncToLocalDatabase().catch(e => console.error(e));
 
     // Get last sync context for header
     apiClient.get('/usuarios/me').then(({ data }) => {
@@ -227,7 +224,7 @@ export function Planner() {
              });
            });
 
-           allItems.sort((a,b) => a.hora_inicio.localeCompare(b.hora_inicio));
+           allItems.sort((a,b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''));
 
            return (
                <div key={dIdx} className={`rounded-xl border border-outline/10 p-4 ${isSameDay(day, new Date()) ? 'bg-primary/5 border-primary/20' : 'bg-surface-container-low'}`}>

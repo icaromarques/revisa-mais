@@ -7,29 +7,34 @@ export const revisaoController = {
   async agendarRevisao(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const { materiaId, topicoId, nome, diasParaFrente } = req.body;
+      const { materiaId, materia_id, topicoId, topico_id, nome, diasParaFrente, dataPrevista: dp, data_prevista } = req.body;
+      
+      const finalMateriaId = materiaId || materia_id;
+      let finalTopicoId = topicoId || topico_id || null;
+      if (finalTopicoId === '') finalTopicoId = null;
 
       // Valida propriedade
       const materia = await prisma.materia.findFirst({
-        where: { id: materiaId, userId }
+        where: { id: finalMateriaId, userId }
       });
       if (!materia) return res.status(404).json({ error: 'Matéria não encontrada' });
 
-      const dataPrevista = addDays(new Date(), diasParaFrente || 1);
+      const finalDataPrevista = dp || data_prevista ? new Date(dp || data_prevista) : addDays(new Date(), diasParaFrente || 1);
 
       const revisao = await prisma.revisao.create({
         data: {
           userId,
-          materiaId,
-          topicoId: topicoId || null,
+          materiaId: finalMateriaId,
+          topicoId: finalTopicoId,
           nome: nome || 'Revisão Automática',
-          dataPrevista,
+          dataPrevista: finalDataPrevista,
           status: 'pendente'
         }
       });
 
       res.status(201).json(revisao);
     } catch (error) {
+      console.error('Erro em agendarRevisao:', error);
       res.status(500).json({ error: 'Erro ao agendar revisão' });
     }
   },
