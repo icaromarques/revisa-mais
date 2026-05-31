@@ -5,6 +5,24 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { prisma } from './config/prisma';
+import { googleCalendarService } from './services/googleCalendar.service';
+
+// Polling Fallback para Google Calendar (a cada 30 minutos)
+setInterval(async () => {
+  try {
+    console.log('[Cron] Iniciando polling de sincronização do Google Calendar...');
+    const users = await prisma.user.findMany({
+      where: { gcalConnected: true, gcalTokenStatus: 'active' },
+      select: { id: true }
+    });
+    for (const u of users) {
+      await googleCalendarService.syncUserCalendar(u.id);
+    }
+    console.log('[Cron] Polling concluído com sucesso.');
+  } catch (err) {
+    console.error('[Cron] Erro no polling de calendário:', err);
+  }
+}, 30 * 60 * 1000);
 
 // Routes
 import authRoutes from './routes/auth.routes';

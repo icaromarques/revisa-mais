@@ -57,6 +57,11 @@ export const eventoController = {
         }
       });
 
+      // Integração: Se for evento criado manualmente ou gerado, envia para a agenda
+      import('../services/googleCalendar.service').then(({ googleCalendarService }) => {
+        googleCalendarService.upsertEvent(userId, evento.id).catch(console.error);
+      });
+
       res.status(201).json(toSnakeCase(evento));
     } catch (error) {
       console.error(error);
@@ -91,6 +96,11 @@ export const eventoController = {
         }
       });
 
+      // Integração
+      import('../services/googleCalendar.service').then(({ googleCalendarService }) => {
+        googleCalendarService.upsertEvent(userId, id).catch(console.error);
+      });
+
       res.json(toSnakeCase(updated));
     } catch (error) {
       console.error(error);
@@ -110,6 +120,13 @@ export const eventoController = {
       if (!evento) return res.status(404).json({ error: 'Evento não encontrado' });
 
       await prisma.eventoAcademico.delete({ where: { id } });
+
+      // Integração
+      if (evento.googleEventId) {
+        import('../services/googleCalendar.service').then(({ googleCalendarService }) => {
+          googleCalendarService.deleteEvent(userId, evento.googleEventId!).catch(console.error);
+        });
+      }
 
       res.json({ success: true });
     } catch (error) {

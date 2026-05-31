@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
+import { googleCalendarService } from '../services/googleCalendar.service';
 
 export const integrationController = {
   async getGoogleStatus(req: Request, res: Response) {
@@ -17,6 +18,21 @@ export const integrationController = {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Erro ao verificar integração Google' });
+    }
+  },
+
+  async forceSyncGoogle(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      
+      // Assíncrono para não travar a UI, retorna 202 Accepted
+      res.status(202).json({ success: true, message: 'Sincronização em background iniciada.' });
+      
+      await googleCalendarService.syncUserCalendar(userId);
+      await googleCalendarService.registerWatchChannel(userId);
+
+    } catch (error) {
+      console.error('Force sync error:', error);
     }
   },
 

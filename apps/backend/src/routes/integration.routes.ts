@@ -6,6 +6,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/google/status', integrationController.getGoogleStatus);
+router.post('/google/sync', integrationController.forceSyncGoogle);
 router.delete('/google/disconnect', integrationController.disconnectGoogle);
 
 export default router;
