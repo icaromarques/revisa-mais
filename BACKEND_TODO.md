@@ -514,6 +514,7 @@ O `googleDriveService.ts` atualmente é apenas um mock. Com o backend, podemos a
 - [ ] **Frontend (React/Vite)**: Deploy na Vercel (Plano Hobby gratuito), conectando ao repositório GitHub. Configurar variáveis de ambiente apontando para a API do Backend.
 - [ ] **Backend (Node.js/Express)**: Deploy no Render.com (Plano Free para Web Services). O serviço entra em sleep após inatividade, mas é ideal para validação e testes gratuitos.
 - [ ] **Banco de Dados (PostgreSQL)**: Utilizar o Supabase ou Neon Tech (ambos possuem planos gratuitos robustos). Obter a string de conexão e adicionar ao `.env` do Render.
+- [ ] **Google Cloud Console**: Atualizar as credenciais do OAuth2 (Adicionar as URLs de produção do Frontend em "Origens JavaScript autorizadas" e a URL do Backend em "URIs de redirecionamento autorizados").
 - [ ] **Cron Jobs**: Utilizar a funcionalidade de cron do Render (se disponível no free tier) ou serviços externos como cron-job.org chamando um endpoint seguro do backend para acionar as sincronizações automáticas em background (Calendar/Revisões).
 
 1. Configure uma instância do PostgreSQL (local ou nuvem).
