@@ -1,5 +1,5 @@
 import { GradeFaculdade, BloqueioAgenda } from '@/types/availability';
-import { isSameDay, addMinutes, isBefore, isAfter, startOfDay, endOfDay, getDay, addDays } from 'date-fns';
+import { isSameDay, addMinutes, isBefore, isAfter, startOfDay, endOfDay, getDay, addDays, format } from 'date-fns';
 import { EventoAcademico } from '@/types/calendar';
 import { parseValidDate } from '@/lib/utils';
 import { userPreferencesService } from './userPreferencesService';
@@ -269,17 +269,15 @@ export const unifiedAvailabilityService = {
     dateMidnight.setHours(0,0,0,0);
 
     // Fetch existing data for the day
-    const qGrade = query(collection(db, 'grade_faculdade'), where('user_id', '==', userId), where('ativo', '==', true));
-    const gradeSnap = await getDocs(qGrade);
-    const grade = gradeSnap.docs.map(d => ({ id: d.id, ...d.data() } as GradeFaculdade));
+    const { data: gradeRaw } = await apiClient.get('/disponibilidade/grade_faculdade');
+    const grade = (gradeRaw || []).filter((g: GradeFaculdade) => g.ativo !== false);
 
-    const qBloqueios = query(collection(db, 'bloqueios_agenda'), where('user_id', '==', userId), where('ativo', '==', true));
-    const bloqueiosSnap = await getDocs(qBloqueios);
-    const bloqueios = bloqueiosSnap.docs.map(d => ({ id: d.id, ...d.data() } as BloqueioAgenda));
+    const { data: bloqueiosRaw } = await apiClient.get('/disponibilidade/bloqueios');
+    const bloqueios = (bloqueiosRaw || []).filter((b: BloqueioAgenda) => b.ativo !== false);
 
-    const qEventos = query(collection(db, 'eventos_academicos'), where('user_id', '==', userId));
-    const eventosSnap = await getDocs(qEventos);
-    const eventos = eventosSnap.docs.map(d => ({ id: d.id, ...d.data() } as EventoAcademico)).filter(e => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const { data: eventosRaw } = await apiClient.get(`/eventos?start=${dateStr}&end=${dateStr}`);
+    const eventos = (eventosRaw || []).filter((e: EventoAcademico) => {
         if (!e.data_inicio) return false;
         return isSameDay(parseValidDate(e.data_inicio), date);
     });

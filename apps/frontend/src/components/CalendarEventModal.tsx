@@ -73,7 +73,7 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
         setMaterias(mRes.data || []);
         setTopicos(tRes.data || []);
 
-        const isConn = await googleCalendarService.isConnected();
+        const isConn = user ? await googleCalendarService.isConnected(user.id) : false;
         setIsGcalConnected(isConn);
 
         if (!eventToEdit && initialData?.sync_enabled === undefined) {

@@ -787,10 +787,9 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
                   console.log('[Excluir Horário] Opção 2: Todos os horários da matéria', { materia_id: form.materia_id });
                   try {
                     // Remover TODOS com essa materia_id
-                    const qAll = query(collection(db, 'grade_faculdade'), where('user_id', '==', user.id), where('materia_id', '==', form.materia_id));
-                    const snap = await getDocs(qAll);
-                    console.log(`[Excluir Horário] Encontrados ${snap.docs.length} horários para a matéria ${form.materia_id}`);
-                    await Promise.all(snap.docs.map(d => availabilityService.deleteGradeFaculdade(d.id, user.id)));
+                    const { data: allGrades } = await apiClient.get(`/disponibilidade/grade_faculdade?materia_id=${form.materia_id}`);
+                    console.log(`[Excluir Horário] Encontrados ${allGrades?.length || 0} horários para a matéria ${form.materia_id}`);
+                    await Promise.all((allGrades || []).map((g: any) => availabilityService.deleteGradeFaculdade(g.id, user.id)));
                     toast.success('Todos os horários da grade foram removidos.');
                     setDeletingMode(false);
                     onClose();
@@ -814,8 +813,7 @@ export function ModalNovoHorario({ onClose, horarioToEdit }: Props) {
                   try {
                     // Deletar o horário atual
                     await availabilityService.deleteGradeFaculdade(horarioToEdit!.id!, user.id);
-                    // Atualizar materia para status concluída
-                    await updateDoc(doc(db, 'materias', form.materia_id!), { status: 'concluida' });
+                    await apiClient.patch(`/materias/${form.materia_id}`, { status: 'concluida' });
                     toast.success('Horário removido e matéria concluída!');
                     setDeletingMode(false);
                     onClose();

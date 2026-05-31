@@ -134,23 +134,28 @@ export const integrityService = {
     const cache: Record<string, Set<string>> = {}; // Valid IDs cache
     const allDocs: Record<string, any[]> = {};
 
-    // FASE 1: Carregar todas as coleções, montar cache de IDs e document maps
-    for (const collName of collectionsToScan) {
-      try {
-        const q = query(collection(db, collName), where('user_id', '==', userId));
-        const snap = await getDocs(q);
-        cache[collName] = new Set();
-        allDocs[collName] = [];
-        for (const d of snap.docs) {
-          cache[collName].add(d.id);
-          allDocs[collName].push({ id: d.id, ...d.data() });
-        }
-        result.totalScanned += snap.size;
-      } catch (err) {
-        console.warn(`Collection ${collName} not readable or doesn't exist.`);
-        cache[collName] = new Set();
-        allDocs[collName] = [];
+    // Load user data from backend export for integrity analysis
+    try {
+      const { data } = await apiClient.get('/admin/export');
+      allDocs.materias = data.materias || [];
+      allDocs.topicos = (data.materias || []).flatMap((m: any) => (m.topicos || []).map((t: any) => ({ ...t, materia_id: m.id })));
+      allDocs.aulas = (data.materias || []).flatMap((m: any) => (m.aulas || []).map((a: any) => ({ ...a, materia_id: m.id })));
+      allDocs.sessoes = data.sessoes || [];
+      allDocs.revisoes = data.revisoes || [];
+      allDocs.ocorrencias_grade = data.ocorrencias || [];
+      allDocs.materiais = (data.materias || []).flatMap((m: any) => m.materiais || []);
+      allDocs.eventos_academicos = data.eventos || [];
+      allDocs.grade_faculdade = data.grade || [];
+      allDocs.bloqueios_agenda = data.bloqueios || [];
+      allDocs.faltas_materias = [];
+
+      for (const collName of collectionsToScan) {
+        cache[collName] = new Set((allDocs[collName] || []).map((d: any) => d.id));
+        result.totalScanned += (allDocs[collName] || []).length;
       }
+    } catch (err) {
+      console.warn('Integrity scan failed', err);
+      return result;
     }
 
     // FASE 2: Escanear relações e inconsistências

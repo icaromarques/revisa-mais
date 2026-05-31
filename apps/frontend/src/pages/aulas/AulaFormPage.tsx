@@ -166,76 +166,61 @@ export function AulaFormPage() {
 
     setSaving(true);
     try {
-      const aulaData: any = {
-        user_id: user.id,
+      let aulaRefId = '';
+
+      const payload = {
         materia_id: materiaId,
         titulo: form.titulo,
         data: form.data,
-        horario: horarioRes.value,
         professor: form.professor,
-        local_ou_link: form.local_ou_link,
         status: form.status,
-        topico_id: form.topico_id,
-        tipo_aula: form.tipo_aula || 'normal',
-        reposicao_ocorrencia_id: form.tipo_aula === 'reposicao' ? form.reposicao_ocorrencia_id : '',
-        conteudo: form.conteudo,
-        resumo_rapido: form.resumo_rapido,
-        duvidas: form.duvidas,
-        prioridade_estudo: form.prioridade_estudo,
-        tempo_estimado_revisao: form.tempo_estimado_revisao,
-        updated_at: new Date().toISOString()
+        topico_id: form.topico_id || null,
+        observacoes: form.conteudo,
+        metadata_json: {
+          horario: horarioRes.value,
+          local_ou_link: form.local_ou_link,
+          tipo_aula: form.tipo_aula,
+          reposicao_ocorrencia_id: form.tipo_aula === 'reposicao' ? form.reposicao_ocorrencia_id : null,
+          resumo_rapido: form.resumo_rapido,
+          duvidas: form.duvidas,
+          prioridade_estudo: form.prioridade_estudo,
+          tempo_estimado_revisao: form.tempo_estimado_revisao
+        }
       };
 
-      let aulaRefId = '';
-
       if (aulaId) {
-        const oldAulaRef = await getDoc(doc(db, 'aulas', aulaId));
-        const oldTitulo = oldAulaRef.exists() ? oldAulaRef.data().titulo : '';
+        const { data: oldAula } = await apiClient.get(`/aulas/${aulaId}`);
+        const oldTitulo = oldAula?.titulo || '';
 
-        await updateDoc(doc(db, 'aulas', aulaId), aulaData);
+        await apiClient.patch(`/aulas/${aulaId}`, payload);
         aulaRefId = aulaId;
 
-        // Sync title change to other collections
         if (oldTitulo && oldTitulo !== form.titulo) {
-          const batchUpdate = writeBatch(db);
-          let hasUpdates = false;
-
-          // Revisions
-          const revsSnap = await getDocs(query(collection(db, 'revisoes'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
-          revsSnap.forEach(rev => {
-             const newName = rev.data().nome.replace(oldTitulo, form.titulo);
-             batchUpdate.update(rev.ref, { nome: newName });
-             hasUpdates = true;
-          });
-
-          // Events
-          const evtsSnap = await getDocs(query(collection(db, 'eventos_academicos'), where('user_id', '==', user.id), where('aula_id', '==', aulaId)));
-          evtsSnap.forEach(evt => {
-             const newTitle = evt.data().titulo.replace(oldTitulo, form.titulo);
-             batchUpdate.update(evt.ref, { titulo: newTitle });
-             hasUpdates = true;
-          });
-
-          if (hasUpdates) {
-             await batchUpdate.commit();
-          }
+          const [revsRes, evtsRes] = await Promise.all([
+            apiClient.get(`/revisoes?aula_id=${aulaId}`),
+            apiClient.get(`/eventos?aula_id=${aulaId}`)
+          ]);
+          await Promise.all([
+            ...(revsRes.data || []).map((rev: any) =>
+              apiClient.put(`/revisoes/${rev.id}`, { nome: String(rev.nome).replace(oldTitulo, form.titulo) })
+            ),
+            ...(evtsRes.data || []).map((evt: any) =>
+              apiClient.patch(`/eventos/${evt.id}`, { titulo: String(evt.titulo).replace(oldTitulo, form.titulo) })
+            )
+          ]);
         }
       } else {
-        const docRef = await addDoc(collection(db, 'aulas'), {
-          ...aulaData,
-          created_at: new Date().toISOString()
-        });
-        aulaRefId = docRef.id;
+        const { data } = await apiClient.post('/aulas', payload);
+        aulaRefId = data.id;
       }
 
       // Resolve absence if makeup class
       if (form.tipo_aula === 'reposicao' && form.reposicao_ocorrencia_id && aulaRefId) {
          try {
-            await updateDoc(doc(db, 'ocorrencias_grade', form.reposicao_ocorrencia_id), {
+            await apiClient.patch(`/ocorrencias/${form.reposicao_ocorrencia_id}`, {
                status_reposicao: 'recuperado',
                reposicao_aula_id: aulaRefId,
-               reposicao_observacao: `Recuperado pela aula: ${form.titulo}`,
-               updated_at: new Date().toISOString()
+               reposicao_observacao: `Recuperado pela aula: ${form.titulo}`
             });
          } catch(e) {
             console.error("Failed to update occurrence with makeup class:", e);

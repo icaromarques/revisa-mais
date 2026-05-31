@@ -65,7 +65,7 @@ function GoogleCalendarSettings() {
             return;
         }
         
-        await googleCalendarService.disconnect();
+        await googleCalendarService.disconnect(user.id);
         setIsConnected(false);
         toast.success("Desconectado do Google Calendar.");
       } else {
@@ -75,7 +75,7 @@ function GoogleCalendarSettings() {
            return;
         }
         toast.info("Abrindo autorização do Google...", { duration: 3000 });
-        const result = await googleCalendarService.diagnosticConnect();
+        const result = await googleCalendarService.diagnosticConnect(user.id);
         
         if (result.ok) {
            setIsConnected(true);
@@ -295,6 +295,14 @@ export function Configuracoes() {
   const [userData, setUserData] = useState<any>(null);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
 
+  const patchProfileSettings = async (updates: Record<string, unknown>) => {
+    await apiClient.patch('/usuarios/perfil/settings', updates);
+    setUserData((prev: any) => ({
+      ...prev,
+      settings: { ...(prev?.settings || {}), ...updates }
+    }));
+  };
+
   useEffect(() => {
     if (!user) return;
     
@@ -488,8 +496,8 @@ export function Configuracoes() {
                           type="checkbox" 
                           checked={userData?.settings?.restWindow?.active ?? true}
                           onChange={(e) => {
-                            updateDoc(doc(db, 'users', user!.uid), {
-                              'settings.restWindow.active': e.target.checked
+                            patchProfileSettings({
+                              restWindow: { ...(userData?.settings?.restWindow || {}), active: e.target.checked }
                             });
                           }}
                           className="sr-only peer" 
@@ -508,8 +516,8 @@ export function Configuracoes() {
                             type="time" 
                             value={userData?.settings?.restWindow?.start ?? '00:00'}
                             onChange={(e) => {
-                              updateDoc(doc(db, 'users', user!.uid), {
-                                'settings.restWindow.start': e.target.value
+                              patchProfileSettings({
+                                restWindow: { ...(userData?.settings?.restWindow || {}), start: e.target.value }
                               });
                             }}
                             className="w-full bg-surface-container-low border border-outline/20 p-4 rounded-xl text-sm font-black outline-none focus:border-primary transition-colors"
@@ -521,8 +529,8 @@ export function Configuracoes() {
                             type="time" 
                             value={userData?.settings?.restWindow?.end ?? '07:00'}
                             onChange={(e) => {
-                              updateDoc(doc(db, 'users', user!.uid), {
-                                'settings.restWindow.end': e.target.value
+                              patchProfileSettings({
+                                restWindow: { ...(userData?.settings?.restWindow || {}), end: e.target.value }
                               });
                             }}
                             className="w-full bg-surface-container-low border border-outline/20 p-4 rounded-xl text-sm font-black outline-none focus:border-primary transition-colors"
@@ -539,8 +547,8 @@ export function Configuracoes() {
                               type="checkbox" 
                               checked={userData?.settings?.restWindow?.allowManual ?? true}
                               onChange={(e) => {
-                                updateDoc(doc(db, 'users', user!.uid), {
-                                  'settings.restWindow.allowManual': e.target.checked
+                                patchProfileSettings({
+                                  restWindow: { ...(userData?.settings?.restWindow || {}), allowManual: e.target.checked }
                                 });
                               }}
                               className="sr-only peer" 
@@ -596,9 +604,7 @@ export function Configuracoes() {
                             type="checkbox" 
                             checked={userData?.settings?.showRevisionSuggestion ?? true}
                             onChange={(e) => {
-                              updateDoc(doc(db, 'users', user!.uid), {
-                                'settings.showRevisionSuggestion': e.target.checked
-                              });
+                              patchProfileSettings({ showRevisionSuggestion: e.target.checked });
                             }}
                             className="sr-only peer" 
                           />
@@ -625,8 +631,8 @@ export function Configuracoes() {
                           type="checkbox" 
                           checked={userData?.settings?.intelligentRevision?.active ?? true}
                           onChange={(e) => {
-                            updateDoc(doc(db, 'users', user!.uid), {
-                              'settings.intelligentRevision.active': e.target.checked
+                            patchProfileSettings({
+                              intelligentRevision: { ...(userData?.settings?.intelligentRevision || {}), active: e.target.checked }
                             });
                           }}
                           className="sr-only peer" 
@@ -649,8 +655,8 @@ export function Configuracoes() {
                                <button
                                  key={mode.id}
                                  onClick={() => {
-                                   updateDoc(doc(db, 'users', user!.uid), {
-                                     'settings.intelligentRevision.mode': mode.id
+                                   patchProfileSettings({
+                                     intelligentRevision: { ...(userData?.settings?.intelligentRevision || {}), mode: mode.id }
                                    });
                                  }}
                                  className={cn(
@@ -678,8 +684,8 @@ export function Configuracoes() {
                                <button
                                  key={sense.id}
                                  onClick={() => {
-                                   updateDoc(doc(db, 'users', user!.uid), {
-                                     'settings.intelligentRevision.sensitivity': sense.id
+                                   patchProfileSettings({
+                                     intelligentRevision: { ...(userData?.settings?.intelligentRevision || {}), sensitivity: sense.id }
                                    });
                                  }}
                                  className={cn(

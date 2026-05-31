@@ -70,7 +70,7 @@ export function AvaliacoesNotasTab({ materia, notas, events }: AvaliacoesNotasTa
       setIsModalOpen(false);
     } catch (error) {
       toast.error("Erro ao salvar nota");
-      handleFirestoreError(error, OperationType.WRITE, 'notas_materia');
+      console.error(error);
     } finally {
       setLoading(false);
     }

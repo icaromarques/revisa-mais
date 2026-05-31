@@ -48,6 +48,10 @@ class NotificationService {
     }
   }
 
+  async archiveNotification(notificationId: string) {
+    return this.updateStatus(notificationId, 'archived' as NotificationStatus);
+  }
+
   async removeOldNotifications(userId: string) {
       try {
           await apiClient.delete('/usuarios/notificacoes/old');

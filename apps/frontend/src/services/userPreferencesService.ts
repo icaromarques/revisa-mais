@@ -45,11 +45,8 @@ class UserPreferencesService {
     }
 
     try {
-      /*
       const { data } = await apiClient.get('/usuarios/preferencias');
       const prefs = this.mergeWithDefaults(data);
-      */
-      const prefs = this.mergeWithDefaults({});
       
       this.cache[userId] = prefs;
       return prefs;
@@ -64,7 +61,7 @@ class UserPreferencesService {
       const current = await this.getPreferences(userId);
       const merged = this.mergeWithDefaults({ ...current, ...data });
 
-      // await apiClient.put('/usuarios/preferencias', merged);
+      await apiClient.put('/usuarios/preferencias', merged);
 
       this.cache[userId] = merged;
     } catch (e) {

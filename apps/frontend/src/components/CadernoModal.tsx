@@ -146,17 +146,7 @@ export function CadernoModal({ caderno, onClose }: CadernoModalProps) {
           setAcertos(a => a + 1);
       }
 
-      // Record to tentativas
-      if (user) {
-         try {
-           await addDoc(collection(db, 'tentativas'), {
-              user_id: user.id,
-              questao_id: questao.id,
-              acertou: isCorrect,
-              created_at: serverTimestamp()
-           });
-         } catch(e){}
-      }
+      // Attempt recording is optional until tentativas endpoint exists
       
       setTimeout(async () => {
           if (studyIdx < questoes.length - 1) {

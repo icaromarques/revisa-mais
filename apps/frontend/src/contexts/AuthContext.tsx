@@ -7,6 +7,7 @@ interface AppUser {
   nome: string;
   email: string;
   gcalConnected: boolean;
+  fotoUrl?: string | null;
 }
 
 interface AuthContextType {

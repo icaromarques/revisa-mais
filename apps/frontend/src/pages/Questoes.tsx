@@ -28,12 +28,14 @@ export function Questoes() {
   useEffect(() => {
     if (!user) return;
     
-    // Fallback: until we fully implement Cadernos controller, simulate the loading state to avoid breakages
-    // apiClient.get('/cadernos').then(({ data }) => setCadernos(data));
-    setTimeout(() => {
+    apiClient.get('/cadernos').then(({ data }) => {
+      setCadernos(data || []);
+      setLoading(false);
+    }).catch((err) => {
+      console.error(err);
       setCadernos([]);
       setLoading(false);
-    }, 500);
+    });
 
   }, [user]);
 
@@ -54,22 +56,20 @@ export function Questoes() {
     setSaving(true);
     try {
       if (editingCaderno) {
-        await updateDoc(doc(db, 'cadernos', editingCaderno.id), {
+        await apiClient.put(`/cadernos/${editingCaderno.id}`, {
           nome: form.nome,
           descricao: form.descricao,
-          updated_at: new Date().toISOString()
         });
         toast.success('Caderno atualizado!');
       } else {
-        await addDoc(collection(db, 'cadernos'), {
-          user_id: user.id,
+        await apiClient.post('/cadernos', {
           nome: form.nome,
           descricao: form.descricao,
-          questoes_count: 0,
-          created_at: new Date().toISOString()
         });
         toast.success('Caderno criado!');
       }
+      const { data } = await apiClient.get('/cadernos');
+      setCadernos(data || []);
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
@@ -88,7 +88,9 @@ export function Questoes() {
       isDanger: true,
       onConfirm: async () => {
         try {
-          // await apiClient.delete(`/cadernos/${id}`);
+          await apiClient.delete(`/cadernos/${id}`);
+          const { data } = await apiClient.get('/cadernos');
+          setCadernos(data || []);
           toast.success('Caderno excluído!');
         } catch (err) {
           console.error(err);

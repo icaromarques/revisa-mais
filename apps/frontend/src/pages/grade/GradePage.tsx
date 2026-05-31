@@ -32,8 +32,7 @@ export function GradePage() {
 
     apiClient.get('/disponibilidade/grade_faculdade').then(({ data }) => {
       setGrade(data);
-      setLoading(false);
-    }).catch(console.error);
+    }).catch(console.error).finally(() => setLoading(false));
 
     apiClient.get('/disponibilidade/bloqueios').then(({ data }) => {
       setBloqueios(data);

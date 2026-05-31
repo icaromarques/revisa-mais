@@ -67,7 +67,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
-  const avatarUrl = user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}&backgroundColor=c0aede`;
+  const avatarUrl = user?.fotoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'Felix'}&backgroundColor=c0aede`;
 
   const getModeColor = () => {
     // Parado / Pronto para iniciar

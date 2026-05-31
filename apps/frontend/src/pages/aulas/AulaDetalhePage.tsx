@@ -411,16 +411,13 @@ export function AulaDetalhePage() {
     if (!aula || !user) return;
     try {
       const dataISO = addDays(new Date(), 3).toISOString();
-      await addDoc(collection(db, 'revisoes'), {
-        user_id: user.id,
+      await apiClient.post('/revisoes', {
         materia_id: materiaId,
         aula_id: aulaId,
-        topico_id: aula.topico_id || '',
+        topico_id: aula.topico_id || null,
         nome: `Revisão Extra: ${aula.titulo}`,
-        data_prevista: dataISO,
-        status: 'pendente',
-        origem: 'manual',
-        created_at: new Date().toISOString()
+        data_prevista: addDays(new Date(), 3).toISOString(),
+        status: 'pendente'
       });
       toast.success('Revisão agendada para daqui a 3 dias!');
     } catch (err) {
@@ -432,19 +429,16 @@ export function AulaDetalhePage() {
     if (!aula || !user) return;
     try {
       const dataISO = addDays(new Date(), 1).toISOString();
-      await addDoc(collection(db, 'eventos_academicos'), {
-        user_id: user.id,
+      await apiClient.post('/eventos', {
         materia_id: materiaId,
         aula_id: aulaId,
-        topico_id: aula.topico_id || '',
+        topico_id: aula.topico_id || null,
         titulo: `Estudar: ${aula.titulo}`,
         descricao: 'Sessão de estudo agendada manualmente',
-        data_inicio: dataISO,
-        data_fim: dataISO,
+        data_inicio: addDays(new Date(), 1).toISOString(),
+        data_fim: addDays(new Date(), 1).toISOString(),
         tipo: 'estudo',
-        origem: 'manual',
-        concluido: false,
-        created_at: new Date().toISOString()
+        concluido: false
       });
       toast.success('Adicionado ao Planner para amanhã!');
     } catch (err) {

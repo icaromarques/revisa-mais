@@ -59,13 +59,12 @@ export function ModalExcluirFalta({ isOpen, onClose, faltaToExcluir }: ModalExcl
     setLoading(true);
     try {
       if (faltaToExcluir.id) {
-         await deleteDoc(doc(db, 'ocorrencias_grade', faltaToExcluir.id));
+         await apiClient.delete(`/ocorrencias/${faltaToExcluir.id}`);
          toast.success('Falta excluída com sucesso.');
       }
       onClose();
     } catch (err: any) {
       console.error('Error deleting absence:', err);
-      handleFirestoreError(err, OperationType.DELETE, `ocorrencias_grade/${faltaToExcluir.id}`);
       toast.error(`Erro ao excluir: ${err.message}`);
     } finally {
       setLoading(false);
@@ -76,22 +75,12 @@ export function ModalExcluirFalta({ isOpen, onClose, faltaToExcluir }: ModalExcl
     if (!user || !faltaToExcluir.id) return;
     
     try {
-      // Find aulas that point to this falta
-      const aulasQuery = query(collection(db, 'aulas'), 
-         where('user_id', '==', user.id),
-         where('reposicao_ocorrencia_id', '==', faltaToExcluir.id)
+      const { data: aulas } = await apiClient.get(`/aulas?materia_id=${faltaToExcluir.materia_id || ''}`);
+      await Promise.all(
+        (aulas || [])
+          .filter((a: any) => a.reposicao_ocorrencia_id === faltaToExcluir.id)
+          .map((a: any) => apiClient.patch(`/aulas/${a.id}`, { reposicao_ocorrencia_id: null }))
       );
-      const aulasSnap = await getDocs(aulasQuery);
-      
-      const batch = writeBatch(db);
-      
-      aulasSnap.docs.forEach(docSnap => {
-         batch.update(docSnap.ref, {
-             reposicao_ocorrencia_id: null
-         });
-      });
-      
-      await batch.commit();
     } catch(err) {
       console.warn("Could not clear back references for aulas", err);
     }

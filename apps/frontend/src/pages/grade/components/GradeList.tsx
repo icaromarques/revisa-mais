@@ -5,6 +5,7 @@ import { availabilityService } from '@/services/availabilityService';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getMateriaColor } from '@/lib/colors';
+import { apiClient } from '@/lib/api';
 import React from 'react';
 
 interface Props {

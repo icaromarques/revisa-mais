@@ -3,6 +3,10 @@ import { X, Edit2, BrainCircuit, AlertCircle, FileText, Video, File, Link as Lin
 import { parseValidDate, safeFormat, formatDuration } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { openMaterial } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { format, addDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { apiClient } from '@/lib/api';
 
 interface AulaDetalheModalProps {
   isOpen: boolean;
@@ -45,17 +49,17 @@ export function AulaDetalheModal({
     if (!user || !novaAvaliacaoTitulo) return;
     setIsScheduling(true);
     try {
-      const newEventRef = await addDoc(collection(db, 'eventos_academicos'), {
-        user_id: user.id,
+      const { data: evt } = await apiClient.post('/eventos', {
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
+        aula_id: aula.id,
         tipo: 'prova',
         titulo: novaAvaliacaoTitulo,
         data_inicio: new Date(novaAvaliacaoData).toISOString(),
-        created_at: new Date().toISOString()
+        data_fim: new Date(novaAvaliacaoData).toISOString()
       });
-      await updateDoc(doc(db, 'aulas', aula.id), {
-        evento_aval_id: newEventRef.id
+      await apiClient.patch(`/aulas/${aula.id}`, {
+        metadata_json: { ...(aula.metadata_json || {}), evento_aval_id: evt.id }
       });
       toast.success('Nova avaliação criada e vinculada com sucesso!');
       setIsNovaAvaliacaoOpen(false);
@@ -74,15 +78,12 @@ export function AulaDetalheModal({
     if (!user) return;
     setIsGenerating(true);
     try {
-      await addDoc(collection(db, 'resumos'), {
-        user_id: user.id,
+      await apiClient.post('/resumos', {
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
-        aula_id: aula.id,
         titulo: `Resumo: ${aula.titulo}`,
         conteudo: aula.conteudo ? `Resumo gerado com base em: ${aula.conteudo.substring(0, 100)}...` : 'Nenhum conteúdo na aula para resumir.',
-        origem: 'ia_aula',
-        created_at: new Date().toISOString()
+        origem: 'ia_aula'
       });
       toast.success('Resumo gerado com sucesso!');
     } catch (err) {
@@ -97,23 +98,17 @@ export function AulaDetalheModal({
     if (!user) return;
     setIsGenerating(true);
     try {
-      const deckRef = await addDoc(collection(db, 'decks'), {
-        user_id: user.id,
+      const { data: deck } = await apiClient.post('/revisoes/decks', {
         materia_id: aula.materia_id,
         topico_id: aula.topico_id || null,
         aula_id: aula.id,
         nome: `Flashcards: ${aula.titulo}`,
-        cor: '#6366f1',
-        origem: 'ia_aula',
-        created_at: new Date().toISOString()
+        origem: 'ia_aula'
       });
 
-      await addDoc(collection(db, 'flashcards'), {
-        user_id: user.id,
-        deck_id: deckRef.id,
+      await apiClient.post(`/revisoes/decks/${deck.id}/cards`, {
         frente: 'Qual é o principal conceito desta aula?',
-        verso: aula.resumo_rapido || 'Rever o material da aula.',
-        created_at: new Date().toISOString()
+        verso: aula.resumo_rapido || 'Rever o material da aula.'
       });
       toast.success('Flashcards gerados com sucesso!');
     } catch (err) {
@@ -408,8 +403,8 @@ export function AulaDetalheModal({
                        {eventos.filter(e => ['prova', 'trabalho', 'apresentacao'].includes(e.tipo)).map(prova => (
                          <button key={prova.id} onClick={async () => {
                             try {
-                              await updateDoc(doc(db, 'aulas', aula.id), {
-                                evento_aval_id: prova.id
+                              await apiClient.patch(`/aulas/${aula.id}`, {
+                                metadata_json: { ...(aula.metadata_json || {}), evento_aval_id: prova.id }
                               });
                               toast.success(`Aula vinculada à avaliação: ${prova.titulo}`);
                             } catch (err) {
