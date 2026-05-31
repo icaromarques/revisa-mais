@@ -156,7 +156,11 @@ export const authController = {
 
   // Faz logout limpando o cookie
   async logout(req: Request, res: Response) {
-    res.clearCookie('session');
+    res.clearCookie('session', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+    });
     res.json({ success: true });
   }
 };
