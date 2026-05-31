@@ -56,8 +56,8 @@ Siga os passos abaixo para rodar o frontend em sua máquina de desenvolvimento.
 
 1.  **Clonar o repositório** e entrar no diretório do projeto:
     ```bash
-    git clone https://github.com/livialucena/Revisa-.git
-    cd Revisa-
+    git clone https://github.com/icaromarques/revisa-mais.git
+    cd revisa-mais
     ```
 
 2.  **Instalar as dependências** necessárias:
@@ -91,11 +91,9 @@ Siga os passos abaixo para rodar o frontend em sua máquina de desenvolvimento.
 
 ---
 
-## 🚀 Próximos Passos: Transição para Backend Relacional (PostgreSQL)
+## 🚀 Status da Transição (Concluído!)
 
-> [!IMPORTANT]  
-> Planejamos evoluir o Revisa+ de uma aplicação baseada em *Firebase Client-Side* para um ecossistema com **Servidor de API Dedicado (Node.js/Express)** e **Banco de Dados Relacional (PostgreSQL)**, trazendo maior controle de segurança, integridade referencial nativa e sincronização em segundo plano robusta com o Google Workspace (Calendar & Drive).
+> [!SUCCESS]  
+> O Revisa+ **já foi migrado** com sucesso de uma aplicação baseada em *Firebase Client-Side* para um ecossistema com **Servidor de API Dedicado (Node.js/Express)** e **Banco de Dados Relacional (PostgreSQL)**, trazendo maior controle de segurança, integridade referencial nativa e sincronização em segundo plano robusta com o Google Workspace.
 
-Desenvolvemos um **Roadmap de Migração Completo** com toda a arquitetura de tabelas do Prisma ORM, mapeamento de coleções do Firestore e o checklist de tarefas técnicas necessárias para o desenvolvimento.
-
-👉 **[Acesse o Guia Completo e TODO de Migração do Backend aqui (BACKEND_TODO.md)](file:///Users/livialucena/Documents/GitHub/Revisa-/BACKEND_TODO.md)**
+A documentação detalhada da arquitetura e o histórico de migração estão na pasta `docs/`. Se você é um agente de Inteligência Artificial prestando suporte, leia **OBRIGATORIAMENTE** o arquivo `docs/AI_AGENT_CONTEXT.md` antes de prosseguir. Para a criadora do sistema, leia o `docs/GUIA_DA_LIVIA.md`.
