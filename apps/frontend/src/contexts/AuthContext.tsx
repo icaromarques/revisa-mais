@@ -14,7 +14,6 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
-  signInAnonymously: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -46,10 +45,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await authApiService.loginWithGoogle();
   };
 
-  const signInAnonymously = async () => {
-    console.warn("Modo Anônimo não suportado na API ainda.");
-  };
-
   const logout = async () => {
     await authApiService.logout();
     setUser(null);
@@ -60,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, 
       loading, 
       signInWithGoogle, 
-      signInAnonymously,
       logout 
     }}>
       {!loading && children}
