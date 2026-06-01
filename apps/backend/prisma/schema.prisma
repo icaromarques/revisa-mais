@@ -8,43 +8,37 @@ datasource db {
 }
 
 model User {
-  id                   String               @id // UID do OAuth ou interno
-  email                String               @unique
-  nome                 String
-  createdAt            DateTime             @default(now()) @map("created_at")
-  updatedAt            DateTime             @updatedAt @map("updated_at")
-  
-  // Google OAuth Tokens (Necessários para sincronização offline/background)
-  gcalConnected        Boolean              @default(false) @map("gcal_connected")
-  gcalEmail            String?              @map("gcal_email")
-  googleRefreshToken   String?              @map("google_refresh_token") // Essencial para renovar token no server
-  gcalLastSync         DateTime?            @map("gcal_last_sync")
+  id                 String             @id
+  email              String             @unique
+  nome               String
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  gcalConnected      Boolean            @default(false) @map("gcal_connected")
+  gcalEmail          String?            @map("gcal_email")
+  googleRefreshToken String?            @map("google_refresh_token")
+  gcalLastSync       DateTime?          @map("gcal_last_sync")
   gcalTokenStatus      String               @default("disconnected") @map("gcal_token_status")
   gcalLastError        String?              @map("gcal_last_error")
   gcalSyncToken        String?              @map("gcal_sync_token")
   gcalChannelId        String?              @map("gcal_channel_id")
   gcalChannelExpiresAt DateTime?            @map("gcal_channel_expires_at")
-
-  // IA Settings
-  geminiApiKey         String?              @map("gemini_api_key") // BYOK
-
-  // Relacionamentos
-  preferences          UserPreferences?
-  profile              UserProfile?
-  materias             Materia[]
-  sessoes              SessaoEstudo[]
-  revisoes             Revisao[]
-  resumos              Resumo[]
-  decks                Deck[]
-  cadernos             Caderno[]
-  eventosAcademicos    EventoAcademico[]
-  notificacoes         Notificacao[]
-  gradeFaculdade       GradeFaculdade[]
-  bloqueiosAgenda      BloqueioAgenda[]
-  ocorrenciasGrade     OcorrenciaGrade[]
-  aulas                Aula[]
-  materiaisEstudo      MaterialEstudo[]
-  tentativas           TentativaQuestao[]
+  geminiApiKey         String?              @map("gemini_api_key")
+  aulas              Aula[]
+  bloqueiosAgenda    BloqueioAgenda[]
+  cadernos           Caderno[]
+  decks              Deck[]
+  eventosAcademicos  EventoAcademico[]
+  gradeFaculdade     GradeFaculdade[]
+  materiaisEstudo    MaterialEstudo[]
+  materias           Materia[]
+  notificacoes       Notificacao[]
+  ocorrenciasGrade   OcorrenciaGrade[]
+  resumos            Resumo[]
+  revisoes           Revisao[]
+  sessoes            SessaoEstudo[]
+  tentativas         TentativaQuestao[]
+  preferences        UserPreferences?
+  profile            UserProfile?
 
   @@map("users")
 }
@@ -52,81 +46,79 @@ model User {
 model UserProfile {
   id           String   @id @default(uuid())
   userId       String   @unique @map("user_id")
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio          String?  @db.Text
+  bio          String?
   instituicao  String?
   curso        String?
   semestre     String?
   turno        String?
   fotoUrl      String?  @map("foto_url")
-  rotina       String?  @db.Text
+  rotina       String?
   plano        String?  @default("free")
   goalsJson    Json     @default("[]") @map("goals_json")
   settingsJson Json     @default("{}") @map("settings_json")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
 
 model UserPreferences {
-  id               String   @id @default(uuid())
-  userId           String   @unique @map("user_id")
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  preferencesJson  Json     @map("preferences_json") // Armazena as configurações pomodoro, heurísticas, etc.
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  preferencesJson Json     @map("preferences_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_preferences")
 }
 
 model Materia {
-  id                      String            @id @default(uuid())
-  userId                  String            @map("user_id")
-  user                    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  nome                    String
-  cor                     String
-  descricao               String?           @db.Text
-  professor               String?
-  prioridade              String?
-  metaSemanalHoras        Float?            @map("meta_semanal_horas")
-  pesoImportancia         String?           @map("peso_importancia")
-  status                  String            @default("em_andamento")
-  periodoInicio           DateTime?         @map("periodo_inicio")
-  periodoFim              DateTime?         @map("periodo_fim")
-  tipoPeriodo             String?           @map("tipo_periodo")
-  numeroPeriodo           Int?              @map("numero_periodo")
-  limiteFaltasPercentual  Float?            @map("limite_faltas_percentual")
-  revisaoAutomaticaAtiva  Boolean           @default(true) @map("revisao_automatica_ativa")
-  exibirNoCalendario      Boolean           @default(true) @map("exibir_no_calendario")
-  iaHabilitada            Boolean           @default(false) @map("ia_habilitada")
-  createdAt               DateTime          @default(now()) @map("created_at")
-  updatedAt               DateTime          @updatedAt @map("updated_at")
-
-  // Relacionamentos
-  topicos          Topico[]
-  notas            NotaMateria[]
-  aulas            Aula[]
-  materiais        MaterialEstudo[]
-  faltas           FaltaMateria[]
-  ocorrenciasGrade OcorrenciaGrade[]
-  revisoes         Revisao[]
-  resumos          Resumo[]
-  eventos          EventoAcademico[]
-  sessoesEstudo    SessaoEstudo[]
-  gradeFaculdade   GradeFaculdade[]
+  id                     String            @id @default(uuid())
+  userId                 String            @map("user_id")
+  nome                   String
+  cor                    String
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+  descricao              String?
+  exibirNoCalendario     Boolean           @default(true) @map("exibir_no_calendario")
+  iaHabilitada           Boolean           @default(false) @map("ia_habilitada")
+  limiteFaltasPercentual Float?            @map("limite_faltas_percentual")
+  metaSemanalHoras       Float?            @map("meta_semanal_horas")
+  numeroPeriodo          Int?              @map("numero_periodo")
+  periodoFim             DateTime?         @map("periodo_fim")
+  periodoInicio          DateTime?         @map("periodo_inicio")
+  pesoImportancia        String?           @map("peso_importancia")
+  prioridade             String?
+  professor              String?
+  revisaoAutomaticaAtiva Boolean           @default(true) @map("revisao_automatica_ativa")
+  status                 String            @default("em_andamento")
+  tipoPeriodo            String?           @map("tipo_periodo")
+  aulas                  Aula[]
+  eventos                EventoAcademico[]
+  faltas                 FaltaMateria[]
+  gradeFaculdade         GradeFaculdade[]
+  materiais              MaterialEstudo[]
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notas                  NotaMateria[]
+  ocorrenciasGrade       OcorrenciaGrade[]
+  resumos                Resumo[]
+  revisoes               Revisao[]
+  sessoesEstudo          SessaoEstudo[]
+  topicos                Topico[]
 
   @@map("materias")
 }
 
 model NotaMateria {
-  id          String   @id @default(uuid())
-  materiaId   String   @map("materia_id")
-  materia     Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
-  nome        String
-  notaMaxima  Float    @map("nota_maxima")
-  notaObtida  Float?   @map("nota_obtida")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  materiaId  String   @map("materia_id")
+  nome       String
+  notaMaxima Float    @map("nota_maxima")
+  notaObtida Float?   @map("nota_obtida")
+  createdAt  DateTime @default(now()) @map("created_at")
+  materia    Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
 
   @@map("notas_materia")
 }
@@ -134,17 +126,15 @@ model NotaMateria {
 model Topico {
   id            String         @id @default(uuid())
   materiaId     String         @map("materia_id")
-  materia       Materia        @relation(fields: [materiaId], references: [id], onDelete: Cascade)
   nome          String
-  statusDominio String         @default("iniciante") @map("status_dominio") // iniciante, intermediario, avançado
+  statusDominio String         @default("iniciante") @map("status_dominio")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
-
-  // Relacionamentos
-  revisoes      Revisao[]
-  resumos       Resumo[]
-  sessoesEstudo SessaoEstudo[]
   aulas         Aula[]
+  resumos       Resumo[]
+  revisoes      Revisao[]
+  sessoesEstudo SessaoEstudo[]
+  materia       Materia        @relation(fields: [materiaId], references: [id], onDelete: Cascade)
 
   @@map("topicos")
 }
@@ -152,41 +142,40 @@ model Topico {
 model SessaoEstudo {
   id                    String   @id @default(uuid())
   userId                String   @map("user_id")
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   materiaId             String?  @map("materia_id")
-  materia               Materia? @relation(fields: [materiaId], references: [id], onDelete: SetNull)
   topicoId              String?  @map("topico_id")
-  topico                Topico?  @relation(fields: [topicoId], references: [id], onDelete: SetNull)
-  tipo                  String   @default("pomodoro") // pomodoro, cronometro, manual, estudo_novo, revisao
-  origemSessao          String?  @map("origem_sessao")
-  titulo                String?
+  tipo                  String   @default("pomodoro")
   tempoEstudadoSegundos Int      @map("tempo_estudado_segundos")
-  dificuldade           Int?
-  professor             String?
-  totalQuestoes         Int?     @map("total_questoes")
-  acertos               Int?
-  notas                 String?  @db.Text
   createdAt             DateTime @default(now()) @map("created_at")
+  acertos               Int?
+  dificuldade           Int?
+  notas                 String?
+  origemSessao          String?  @map("origem_sessao")
+  professor             String?
+  titulo                String?
+  totalQuestoes         Int?     @map("total_questoes")
+  materia               Materia? @relation(fields: [materiaId], references: [id])
+  topico                Topico?  @relation(fields: [topicoId], references: [id])
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessoes_estudo")
 }
 
 model Revisao {
-  id           String   @id @default(uuid())
-  userId       String   @map("user_id")
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  materiaId    String   @map("materia_id")
-  materia      Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
-  topicoId     String?  @map("topico_id")
-  topico       Topico?  @relation(fields: [topicoId], references: [id], onDelete: SetNull)
-  aulaId       String?  @map("aula_id")
+  id           String            @id @default(uuid())
+  userId       String            @map("user_id")
+  materiaId    String            @map("materia_id")
+  topicoId     String?           @map("topico_id")
   nome         String
-  status       String   @default("pendente") // pendente, concluida, atrasada
-  dataPrevista DateTime @map("data_prevista")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
+  status       String            @default("pendente")
+  dataPrevista DateTime          @map("data_prevista")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  aulaId       String?           @map("aula_id")
   eventos      EventoAcademico[]
+  materia      Materia           @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  topico       Topico?           @relation(fields: [topicoId], references: [id])
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("revisoes")
 }
@@ -194,16 +183,16 @@ model Revisao {
 model Resumo {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   materiaId String?  @map("materia_id")
-  materia   Materia? @relation(fields: [materiaId], references: [id], onDelete: SetNull)
   topicoId  String?  @map("topico_id")
-  topico    Topico?  @relation(fields: [topicoId], references: [id], onDelete: SetNull)
   titulo    String
-  conteudo  String   @db.Text
-  origem    String   @default("manual") // manual, ia
+  conteudo  String
+  origem    String   @default("manual")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  materia   Materia? @relation(fields: [materiaId], references: [id])
+  topico    Topico?  @relation(fields: [topicoId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("resumos")
 }
@@ -211,76 +200,72 @@ model Resumo {
 model Deck {
   id         String      @id @default(uuid())
   userId     String      @map("user_id")
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  materiaId  String?     @map("materia_id")
-  aulaId     String?     @map("aula_id")
-  topicoId   String?     @map("topico_id")
   nome       String
-  descricao  String?     @db.Text
-  origem     String      @default("manual") // manual, ia
+  origem     String      @default("manual")
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")
+  aulaId     String?     @map("aula_id")
+  descricao  String?
+  materiaId  String?     @map("materia_id")
+  topicoId   String?     @map("topico_id")
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   flashcards Flashcard[]
 
   @@map("decks")
 }
 
 model Flashcard {
-  id               String    @id @default(uuid())
-  deckId           String    @map("deck_id")
-  deck             Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  frente           String    @db.Text
-  verso            String    @db.Text
-  
-  // Metadados SuperMemo SM-2 (Algoritmo de Spaced Repetition)
-  intervalo        Int       @default(0) // Dias até a próxima revisão
-  repeticoes       Int       @default(0) // Número de repetições consecutivas corretas
-  fatorFacilidade  Float     @default(2.5) @map("fator_facilidade")
-  proximaRevisao   DateTime? @map("proxima_revisao")
-  
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  deckId          String    @map("deck_id")
+  frente          String
+  verso           String
+  intervalo       Int       @default(0)
+  repeticoes      Int       @default(0)
+  fatorFacilidade Float     @default(2.5) @map("fator_facilidade")
+  proximaRevisao  DateTime? @map("proxima_revisao")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deck            Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
 
   @@map("flashcards")
 }
 
 model Caderno {
-  id            String     @id @default(uuid())
-  userId        String     @map("user_id")
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
   nome          String
   descricao     String?
-  questoesCount Int        @default(0) @map("questoes_count")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+  questoesCount Int       @default(0) @map("questoes_count")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   questoes      Questao[]
 
   @@map("cadernos")
 }
 
 model Questao {
-  id           String             @id @default(uuid())
-  cadernoId    String             @map("caderno_id")
-  caderno      Caderno            @relation(fields: [cadernoId], references: [id], onDelete: Cascade)
-  enunciado    String             @db.Text
-  tipo         String             @default("multipla_escolha")
-  dificuldade  String             @default("media") // facil, media, dificil
-  origem       String             @default("manual") // manual, ia
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
-  
+  id           String               @id @default(uuid())
+  cadernoId    String               @map("caderno_id")
+  enunciado    String
+  tipo         String               @default("multipla_escolha")
+  dificuldade  String               @default("media")
+  origem       String               @default("manual")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
   alternativas AlternativaQuestao[]
+  caderno      Caderno              @relation(fields: [cadernoId], references: [id], onDelete: Cascade)
   tentativas   TentativaQuestao[]
 
   @@map("questoes")
 }
 
 model AlternativaQuestao {
-  id        String   @id @default(uuid())
-  questaoId String   @map("questao_id")
-  questao   Questao  @relation(fields: [questaoId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  questaoId String  @map("questao_id")
   texto     String
-  correta   Boolean  @default(false)
+  correta   Boolean @default(false)
+  questao   Questao @relation(fields: [questaoId], references: [id], onDelete: Cascade)
 
   @@map("alternativas_questao")
 }
@@ -288,103 +273,101 @@ model AlternativaQuestao {
 model TentativaQuestao {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   questaoId String   @map("questao_id")
-  questao   Questao  @relation(fields: [questaoId], references: [id], onDelete: Cascade)
   acertou   Boolean
   createdAt DateTime @default(now()) @map("created_at")
+  questao   Questao  @relation(fields: [questaoId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("tentativas_questao")
 }
 
 model EventoAcademico {
-  id                 String    @id @default(uuid())
-  userId             String    @map("user_id")
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  materiaId          String?   @map("materia_id")
-  materia            Materia?  @relation(fields: [materiaId], references: [id], onDelete: SetNull)
-  aulaId             String?   @map("aula_id")
-  revisaoId          String?   @map("revisao_id")
-  revisao            Revisao?  @relation(fields: [revisaoId], references: [id], onDelete: SetNull)
-  titulo             String
-  descricao          String?   @db.Text
-  tipo               String    @default("evento") // revisao, prova, trabalho, apresentacao, sessao_estudo, evento_google
-  origem             String    @default("sistema") // sistema, google_external
-  dataInicio         DateTime  @map("data_inicio")
-  dataFim            DateTime  @map("data_fim")
-  diaInteiro         Boolean   @default(false) @map("dia_inteiro")
-  local              String?
-  cor                String?
-  concluido          Boolean   @default(false)
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-
-  // Integração Google Calendar
-  googleEventId      String?   @map("google_event_id")
-  googleCalendarId   String?   @map("google_calendar_id")
-  htmlLink           String?   @map("html_link")
-  googleStatus       String?   @map("google_status")
-  syncStatus         String    @default("pendente") @map("sync_status") // sincronizado, pendente, erro, externo
-  lastSyncAt         DateTime? @map("last_sync_at")
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  materiaId        String?   @map("materia_id")
+  revisaoId        String?   @map("revisao_id")
+  titulo           String
+  descricao        String?
+  tipo             String    @default("evento")
+  origem           String    @default("sistema")
+  dataInicio       DateTime  @map("data_inicio")
+  dataFim          DateTime  @map("data_fim")
+  diaInteiro       Boolean   @default(false) @map("dia_inteiro")
+  local            String?
+  cor              String?
+  concluido        Boolean   @default(false)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  googleEventId    String?   @map("google_event_id")
+  googleCalendarId String?   @map("google_calendar_id")
+  htmlLink         String?   @map("html_link")
+  googleStatus     String?   @map("google_status")
+  syncStatus       String    @default("pendente") @map("sync_status")
+  lastSyncAt       DateTime? @map("last_sync_at")
+  aulaId           String?   @map("aula_id")
+  materia          Materia?  @relation(fields: [materiaId], references: [id])
+  revisao          Revisao?  @relation(fields: [revisaoId], references: [id])
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("eventos_academicos")
 }
 
 model Aula {
   id                    String           @id @default(uuid())
-  userId                String           @map("user_id")
-  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   materiaId             String           @map("materia_id")
-  materia               Materia          @relation(fields: [materiaId], references: [id], onDelete: Cascade)
-  topicoId              String?          @map("topico_id")
-  topico                Topico?          @relation(fields: [topicoId], references: [id], onDelete: SetNull)
   titulo                String
   status                String           @default("agendada")
   data                  DateTime?
-  professor             String?
-  observacoes           String?          @db.Text
-  reposicaoOcorrenciaId String?          @map("reposicao_ocorrencia_id")
-  metadataJson          Json?            @map("metadata_json")
   createdAt             DateTime         @default(now()) @map("created_at")
   updatedAt             DateTime         @updatedAt @map("updated_at")
+  metadataJson          Json?            @map("metadata_json")
+  observacoes           String?
+  professor             String?
+  reposicaoOcorrenciaId String?          @map("reposicao_ocorrencia_id")
+  topicoId              String?          @map("topico_id")
+  userId                String           @map("user_id")
+  materia               Materia          @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  topico                Topico?          @relation(fields: [topicoId], references: [id])
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   materiais             MaterialEstudo[]
 
   @@map("aulas")
 }
 
 model MaterialEstudo {
-  id                  String   @id @default(uuid())
-  userId              String   @map("user_id")
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  materiaId           String   @map("materia_id")
-  materia             Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
-  aulaId              String?  @map("aula_id")
-  aula                Aula?    @relation(fields: [aulaId], references: [id], onDelete: SetNull)
-  topicoId            String?  @map("topico_id")
-  titulo              String
-  tipo                String   @default("link")
-  url                 String?
-  conteudo            String?  @db.Text
-  googleDriveFileId   String?  @map("google_drive_file_id")
-  metadataJson        Json?    @map("metadata_json")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(uuid())
+  materiaId         String   @map("materia_id")
+  aulaId            String?  @map("aula_id")
+  titulo            String
+  tipo              String   @default("link")
+  url               String?
+  googleDriveFileId String?  @map("google_drive_file_id")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  conteudo          String?
+  metadataJson      Json?    @map("metadata_json")
+  topicoId          String?  @map("topico_id")
+  userId            String   @map("user_id")
+  aula              Aula?    @relation(fields: [aulaId], references: [id])
+  materia           Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("materiais_estudo")
 }
 
 model Notificacao {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tipo      String
-  titulo    String
-  mensagem  String   @db.Text
-  lida      Boolean  @default(false)
-  status    String   @default("active")
-  metadataJson Json? @map("metadata_json")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  tipo         String
+  titulo       String
+  mensagem     String
+  lida         Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+  metadataJson Json?    @map("metadata_json")
+  status       String   @default("active")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notificacoes")
 }
@@ -392,29 +375,29 @@ model Notificacao {
 model GradeFaculdade {
   id                     String    @id @default(uuid())
   userId                 String    @map("user_id")
-  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  materiaId              String?   @map("materia_id")
-  materia                Materia?  @relation(fields: [materiaId], references: [id], onDelete: SetNull)
   titulo                 String
-  professor              String?
-  local                  String?
   diasSemana             Int[]     @map("dias_semana")
   horaInicio             String    @map("hora_inicio")
   horaFim                String    @map("hora_fim")
-  recorrente             Boolean   @default(true)
-  dataEspecifica         DateTime? @map("data_especifica")
-  dataInicioVigencia     DateTime? @map("data_inicio_vigencia")
-  dataFimVigencia        DateTime? @map("data_fim_vigencia")
-  periodoInicio          DateTime? @map("periodo_inicio")
-  periodoFim             DateTime? @map("periodo_fim")
-  tipoPeriodo            String?   @map("tipo_periodo")
-  numeroPeriodo          Int?      @map("numero_periodo")
-  limiteFaltasPercentual Float?    @map("limite_faltas_percentual")
-  observacoes            String?   @db.Text
-  cor                    String?
   ativo                  Boolean   @default(true)
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
+  cor                    String?
+  dataEspecifica         DateTime? @map("data_especifica")
+  dataFimVigencia        DateTime? @map("data_fim_vigencia")
+  dataInicioVigencia     DateTime? @map("data_inicio_vigencia")
+  limiteFaltasPercentual Float?    @map("limite_faltas_percentual")
+  local                  String?
+  materiaId              String?   @map("materia_id")
+  numeroPeriodo          Int?      @map("numero_periodo")
+  observacoes            String?
+  periodoFim             DateTime? @map("periodo_fim")
+  periodoInicio          DateTime? @map("periodo_inicio")
+  professor              String?
+  recorrente             Boolean   @default(true)
+  tipoPeriodo            String?   @map("tipo_periodo")
+  materia                Materia?  @relation(fields: [materiaId], references: [id])
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("grade_faculdade")
 }
@@ -422,22 +405,22 @@ model GradeFaculdade {
 model BloqueioAgenda {
   id                 String    @id @default(uuid())
   userId             String    @map("user_id")
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   titulo             String
-  tipo               String    @default("bloqueio")
   categoria          String    @default("pessoal")
   horaInicio         String    @map("hora_inicio")
   horaFim            String    @map("hora_fim")
   recorrente         Boolean   @default(true)
   diasSemana         Int[]     @map("dias_semana")
-  dataEspecifica     DateTime? @map("data_especifica")
-  dataInicioVigencia DateTime? @map("data_inicio_vigencia")
-  dataFimVigencia    DateTime? @map("data_fim_vigencia")
-  observacoes        String?   @db.Text
-  cor                String?
   ativo              Boolean   @default(true)
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
+  cor                String?
+  dataEspecifica     DateTime? @map("data_especifica")
+  dataFimVigencia    DateTime? @map("data_fim_vigencia")
+  dataInicioVigencia DateTime? @map("data_inicio_vigencia")
+  observacoes        String?
+  tipo               String    @default("bloqueio")
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("bloqueios_agenda")
 }
@@ -445,34 +428,34 @@ model BloqueioAgenda {
 model FaltaMateria {
   id        String   @id @default(uuid())
   materiaId String   @map("materia_id")
-  materia   Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
   data      DateTime
   createdAt DateTime @default(now()) @map("created_at")
+  materia   Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
 
   @@map("faltas_materias")
 }
 
 model OcorrenciaGrade {
   id                    String   @id @default(uuid())
-  userId                String   @map("user_id")
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   materiaId             String   @map("materia_id")
-  materia               Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
-  gradeId               String?  @map("grade_id")
   data                  DateTime
   status                String   @default("pendente_confirmacao")
-  aulaId                String?  @map("aula_id")
-  quantidadeOcorrencias Int      @default(1) @map("quantidade_ocorrencias")
-  origem                String?
-  tipoFalta             String?  @map("tipo_falta")
-  topicoId              String?  @map("topico_id")
-  observacoes           String?  @db.Text
-  statusReposicao       String?  @default("pendente") @map("status_reposicao")
-  reposicaoAulaId       String?  @map("reposicao_aula_id")
-  reposicaoSessaoId     String?  @map("reposicao_sessao_id")
-  reposicaoObservacao   String?  @map("reposicao_observacao") @db.Text
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
+  aulaId                String?  @map("aula_id")
+  gradeId               String?  @map("grade_id")
+  observacoes           String?
+  origem                String?
+  quantidadeOcorrencias Int      @default(1) @map("quantidade_ocorrencias")
+  reposicaoAulaId       String?  @map("reposicao_aula_id")
+  reposicaoObservacao   String?  @map("reposicao_observacao")
+  reposicaoSessaoId     String?  @map("reposicao_sessao_id")
+  statusReposicao       String?  @default("pendente") @map("status_reposicao")
+  tipoFalta             String?  @map("tipo_falta")
+  topicoId              String?  @map("topico_id")
+  userId                String   @map("user_id")
+  materia               Materia  @relation(fields: [materiaId], references: [id], onDelete: Cascade)
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("ocorrencias_grade")
 }
