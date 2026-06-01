@@ -52,14 +52,33 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 
+function buildCorsOrigins(): string[] {
+  const origins = new Set<string>([
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3001',
+  ]);
+
+  for (const origin of [...origins]) {
+    try {
+      const { protocol, hostname } = new URL(origin);
+      if (hostname.startsWith('www.')) {
+        origins.add(`${protocol}//${hostname.slice(4)}`);
+      } else if (!hostname.includes('localhost') && hostname !== '127.0.0.1') {
+        origins.add(`${protocol}//www.${hostname}`);
+      }
+    } catch {
+      // ignore invalid URLs
+    }
+  }
+
+  return [...origins];
+}
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:3001'
-  ],
+  origin: buildCorsOrigins(),
   credentials: true
 }));
 app.use(helmet());

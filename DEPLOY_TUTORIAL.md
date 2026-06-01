@@ -90,10 +90,10 @@ Com tudo rodando, precisamos de 2 passos finais de configuração:
 
 1. **Vá ao Google Cloud Console**:
    - Entre nas configurações do seu Cliente OAuth2.
-   - Em **"Origens JavaScript autorizadas"**, adicione a sua **URL do Frontend na Vercel** (ex: `https://revisa-app.vercel.app`). Isso permite que o pop-up de login abra sem bloquear por segurança.
+   - Em **"Origens JavaScript autorizadas"**, adicione **todas** as URLs do frontend em uso (ex: `https://revisa-app.vercel.app`, `https://revisa.app.br` e `https://www.revisa.app.br`). Se a Vercel redireciona o apex para `www`, o login roda em `www` — inclua os dois.
 2. **Vá ao Painel do Render (Backend)**:
    - Acesse a aba **Environment** do seu Web Service.
-   - Edite a variável `FRONTEND_URL` e cole a URL do seu Frontend na Vercel (ex: `https://revisa-app.vercel.app`). Isso ajusta o CORS para a nuvem.
+   - Edite `FRONTEND_URL` para a URL **canônica** onde o usuário fica após o redirect (ex: `https://www.revisa.app.br` se o apex redireciona para `www`). O backend aceita apex e `www` no CORS automaticamente, mas o redirect pós-login usa `FRONTEND_URL`.
 
 ### Pronto! 🎉
 Sua infraestrutura full-stack (Front, Back e Database relacional) está no ar com 100% de gratuidade e alta resiliência!
