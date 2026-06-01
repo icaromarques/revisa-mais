@@ -3,38 +3,35 @@ import { prisma } from '../config/prisma';
 import { googleCalendarService } from '../services/googleCalendar.service';
 
 export const googleWebhookController = {
-  // Rota que o Google chamará quando houver atualização na agenda do usuário
   async handleCalendarWebhook(req: Request, res: Response) {
     try {
-      // O Google envia headers específicos, incluindo o ID do canal que criamos
       const channelId = req.headers['x-goog-channel-id'] as string;
-      const resourceState = req.headers['x-goog-resource-state'] as string; // 'sync' ou 'exists'
+      const resourceState = req.headers['x-goog-resource-state'] as string;
 
-      console.log(`[Webhook Calendar] Recebido push para o canal ${channelId}. Estado: ${resourceState}`);
+      console.log(`[Webhook Calendar] Channel ${channelId}. State: ${resourceState}`);
 
-      // Responde ao Google rapidamente (Timeout de 3s obrigatório pela API deles)
       res.status(200).send('OK');
 
-      // Se for apenas o "sync" inicial de quando registramos o webhook, ignorar.
       if (resourceState === 'sync') return;
-
       if (!channelId) return;
 
-      // 1. Procurar no nosso banco de dados a qual usuário esse webhook pertence
-      const user = await prisma.user.findFirst({ where: { gcalChannelId: channelId } });
-      
-      if (!user) {
-        console.log(`[Webhook Calendar] Canal ${channelId} não encontrado em nenhum usuário.`);
+      const cal = await prisma.userGoogleCalendar.findFirst({
+        where: { channelId }
+      });
+
+      if (!cal) {
+        const legacyUser = await prisma.user.findFirst({ where: { gcalChannelId: channelId } });
+        if (legacyUser) {
+          googleCalendarService.syncUserCalendar(legacyUser.id).catch(console.error);
+        }
         return;
       }
 
-      console.log(`[Webhook Calendar] Iniciando sincronização offline para usuário ${user.id}...`);
-      
-      // Roda em background
-      googleCalendarService.syncUserCalendar(user.id).catch((err: Error) => {
-        console.error(`[Webhook Calendar] Erro no background job para user ${user.id}:`, err);
-      });
-
+      googleCalendarService
+        .syncSingleCalendar(cal.userId, cal.googleCalendarId)
+        .catch((err: Error) => {
+          console.error(`[Webhook Calendar] Sync error for user ${cal.userId}:`, err);
+        });
     } catch (error) {
       console.error('[Webhook Calendar] Erro:', error);
     }

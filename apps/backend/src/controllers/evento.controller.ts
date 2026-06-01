@@ -124,7 +124,9 @@ export const eventoController = {
       // Integração
       if (evento.googleEventId) {
         import('../services/googleCalendar.service').then(({ googleCalendarService }) => {
-          googleCalendarService.deleteEvent(userId, evento.googleEventId!).catch(console.error);
+          googleCalendarService
+            .deleteEvent(userId, evento.googleEventId!, evento.googleCalendarId)
+            .catch(console.error);
         });
       }
 
@@ -141,9 +143,9 @@ export const eventoController = {
       const { googleCalendarService } = await import('../services/googleCalendar.service');
       
       // Executa em background para não dar timeout na requisição HTTP
-      googleCalendarService.syncUserCalendar(userId)
-        .then(() => googleCalendarService.registerWatchChannel(userId))
-        .catch(err => console.error(`Background sync error for user ${userId}:`, err));
+      googleCalendarService
+        .syncUserCalendar(userId)
+        .catch((err) => console.error(`Background sync error for user ${userId}:`, err));
       
       res.json({ success: true, message: 'Sincronização iniciada em segundo plano' });
     } catch (error) {

@@ -3,6 +3,7 @@ import { oauth2Client, SCOPES } from '../config/google';
 import { prisma } from '../config/prisma';
 import { google } from 'googleapis';
 import jwt from 'jsonwebtoken';
+import { googleCalendarService } from '../services/googleCalendar.service';
 
 async function syncGoogleProfilePicture(userId: string, picture: string | null | undefined) {
   if (!picture) return;
@@ -91,6 +92,10 @@ export const authController = {
       });
 
       await syncGoogleProfilePicture(user.id, picture);
+
+      googleCalendarService.syncUserCalendar(user.id).catch((err) => {
+        console.error('Post-login calendar sync failed:', err);
+      });
 
       // 4. Cria o JWT para o Frontend (Session Cookie)
       const sessionToken = jwt.sign(
