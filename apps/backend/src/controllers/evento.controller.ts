@@ -132,5 +132,35 @@ export const eventoController = {
     } catch (error) {
       res.status(500).json({ error: 'Erro ao excluir evento' });
     }
+  },
+
+  async syncRange(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const { timeMin, timeMax } = req.body;
+
+      const { googleCalendarService } = await import('../services/googleCalendar.service');
+      await googleCalendarService.syncUserCalendar(userId);
+      
+      res.json({ success: true, message: 'Sincronização iniciada' });
+    } catch (error) {
+      console.error('Erro ao sincronizar range:', error);
+      res.status(500).json({ error: 'Erro ao sincronizar com Google Calendar' });
+    }
+  },
+
+  async syncIndividual(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const id = asString(req.params.id);
+
+      const { googleCalendarService } = await import('../services/googleCalendar.service');
+      await googleCalendarService.upsertEvent(userId, id);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Erro ao sincronizar evento individual:', error);
+      res.status(500).json({ error: 'Erro ao sincronizar evento' });
+    }
   }
 };

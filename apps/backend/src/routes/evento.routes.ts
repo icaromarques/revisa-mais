@@ -8,6 +8,8 @@ router.use(requireAuth);
 
 router.post('/', eventoController.createEvento);
 router.get('/', eventoController.getEventos);
+router.post('/sync-range', eventoController.syncRange);
+router.post('/:id/sync-google', eventoController.syncIndividual);
 router.patch('/:id', eventoController.updateEvento);
 router.delete('/:id', eventoController.deleteEvento);
 
