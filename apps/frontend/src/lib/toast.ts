@@ -75,9 +75,9 @@ export const toast = {
       duration: PERSISTENT_DURATION,
       ...options,
       style: {
-        background: '#1e1e24',
-        color: '#fff',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        background: 'var(--color-toast-bg)',
+        color: 'var(--color-on-surface)',
+        border: '1px solid var(--color-toast-border)',
       }
     });
   },

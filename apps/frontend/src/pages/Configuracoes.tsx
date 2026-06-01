@@ -1,6 +1,7 @@
 import { Header } from '@/components/Header';
 import { Settings, Shield, Bell, Calendar as CalendarIcon, Clock, Zap, Monitor, Lock, LogOut, ChevronRight, Database, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme, type ThemePreference } from '@/contexts/ThemeContext';
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { googleCalendarService, GCalDiagnosticResult } from '@/services/googleCalendar';
@@ -342,6 +343,7 @@ function GoogleCalendarSettings() {
 
 export function Configuracoes() {
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   const { openSettings: openPomodoroSettings } = useStudyTimer();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<'preferences' | 'notifications' | 'agenda' | 'study' | 'appearance' | 'account' | 'data'>('preferences');
@@ -391,6 +393,12 @@ export function Configuracoes() {
       <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
     </div>
   );
+
+  const themeOptions: { id: ThemePreference; label: string; previewClass: string }[] = [
+    { id: 'dark', label: 'Dark Premium', previewClass: 'bg-[#0b0b0f]' },
+    { id: 'light', label: 'Light', previewClass: 'bg-white' },
+    { id: 'system', label: 'Sistema', previewClass: 'bg-gradient-to-r from-[#0b0b0f] to-white' },
+  ];
 
   const sections = [
     { id: 'preferences', label: 'Estratégia e Presets', icon: Settings, desc: 'Motor de Decisão e Perfil' },
@@ -822,19 +830,30 @@ export function Configuracoes() {
                   <div className="space-y-8">
                     <div className="space-y-4">
                       <label className="text-[10px] font-black uppercase text-outline tracking-widest">Tema Visual</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                        <button className="relative p-5 rounded-3xl border-2 border-primary bg-primary/5 flex flex-col items-center gap-3 group ring-4 ring-primary/5">
-                          <div className="w-16 h-10 bg-[#0b0b0f] rounded-xl border border-outline shadow-2xl"></div>
-                          <span className="text-[10px] font-black uppercase tracking-widest">Dark Premium</span>
-                        </button>
-                        <button className="p-5 rounded-3xl border border-outline/20 bg-surface-container-low/20 flex flex-col items-center gap-3 opacity-40 cursor-not-allowed">
-                          <div className="w-16 h-10 bg-white rounded-xl border border-outline"></div>
-                          <span className="text-[10px] font-black uppercase tracking-widest">Light (EM BREVE)</span>
-                        </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {themeOptions.map((option) => {
+                          const isSelected = theme === option.id;
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              onClick={() => setTheme(option.id)}
+                              className={cn(
+                                'relative p-5 rounded-3xl border flex flex-col items-center gap-3 transition-all',
+                                isSelected
+                                  ? 'border-2 border-primary bg-primary/5 ring-4 ring-primary/5'
+                                  : 'border-outline/20 bg-surface-container-low/20 hover:border-outline/40 hover:bg-surface-container-low/40',
+                              )}
+                            >
+                              <div className={cn('w-16 h-10 rounded-xl border border-outline shadow-lg', option.previewClass)} />
+                              <span className="text-[10px] font-black uppercase tracking-widest">{option.label}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
-                    <div className="p-6 bg-[#0f1117] rounded-3xl border border-outline/10 space-y-4">
+                    <div className="p-6 bg-popover rounded-3xl border border-outline/10 space-y-4">
                       <div className="flex items-center justify-between">
                          <div>
                             <h4 className="text-xs font-black uppercase tracking-tight">Densidade do Dashboard</h4>

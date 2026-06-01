@@ -192,7 +192,7 @@ export function Dashboard() {
             </button>
             
             {isPeriodMenuOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-3 w-56 bg-[#18191e] border border-outline/30 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] ring-1 ring-black/50 overflow-hidden z-[100]">
+              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-3 w-56 bg-popover border border-outline/30 rounded-2xl shadow-2xl ring-1 ring-outline/20 overflow-hidden z-[100]">
                 {!showCustomRangePicker ? (
                   <div className="flex flex-col p-2 gap-1 text-sm bg-transparent">
                     {(['ontem', '3d', 'semana', '30d'] as TimeRange[]).map(rt => (

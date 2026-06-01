@@ -1,13 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Revisa +</title>
+    <script>
+      (function () {
+        var STORAGE_KEY = 'revisa-theme';
+        var stored = localStorage.getItem(STORAGE_KEY);
+        var preference = stored === 'light' || stored === 'system' ? stored : 'dark';
+        var resolved =
+          preference === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : preference;
+        document.documentElement.setAttribute('data-theme', resolved);
+        document.documentElement.style.colorScheme = resolved;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

@@ -136,6 +136,20 @@ Publish from anywhere via `emitCalendarUpdated`, `emitNotificationCreated` in `a
 
 Optional env: `VITE_WS_URL` (defaults to `VITE_API_URL` host with `wss:` + `/ws`).
 
+## 🎨 Theme System (Frontend)
+
+The UI supports **dark**, **light**, and **system** (follows OS `prefers-color-scheme`) themes.
+
+| Layer | Location | Role |
+|-------|----------|------|
+| Design tokens | `apps/frontend/src/index.css` | Material 3-style CSS variables in `@theme`; light overrides under `[data-theme="light"]` |
+| Runtime | `apps/frontend/src/contexts/ThemeContext.tsx` | Applies `data-theme` on `<html>`, listens to OS changes when preference is `system` |
+| Persistence | `localStorage` key `revisa-theme` + `UserProfile.settingsJson.theme` via `PATCH /usuarios/perfil/settings` |
+| Anti-flash | `apps/frontend/index.html` inline script | Resolves theme before React hydration |
+| UI | Configurações → Aparência | User selects dark / light / system |
+
+Semantic tokens (`bg-background`, `bg-elevated`, `bg-popover`, `bg-hover-overlay`, etc.) should be preferred over hardcoded hex colors so components adapt automatically.
+
 ## 🚀 Deployment Pipeline
 
 - **Frontend:** Pushes to `main` auto-deploy to Vercel. SPA routing is handled by `vercel.json` rewriting to `/index.html`.
