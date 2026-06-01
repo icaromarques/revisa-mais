@@ -245,12 +245,12 @@ export function Perfil() {
     <>
       <Header title="Perfil do Estudante" />
 
-      <div className="p-8 max-w-5xl mx-auto w-full space-y-8 animate-in fade-in duration-500 pb-20">
+      <div className="p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
         
         {/* Banner / Card Principal */}
         <div className="relative group">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-transparent to-primary/5 rounded-[40px] blur-3xl opacity-50"></div>
-          <div className="relative bg-[#0b0b0f] border border-outline/20 rounded-[40px] p-8 md:p-12 shadow-2xl flex flex-col md:flex-row items-center gap-10 overflow-hidden">
+          <div className="relative bg-elevated border border-outline/20 rounded-[32px] md:rounded-[40px] p-6 md:p-12 shadow-2xl flex flex-col md:flex-row items-center gap-6 md:gap-10 overflow-hidden">
              
              <div className="relative shrink-0 group/avatar cursor-pointer" onClick={() => { setFotoDraftUrl(avatarUrl); setIsEditModalOpen(true);}}>
                <div className="w-40 h-40 rounded-[2.5rem] overflow-hidden border-4 border-surface-container-highest shadow-2xl transition-transform duration-500 ring-4 ring-primary/10 relative">

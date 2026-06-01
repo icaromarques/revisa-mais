@@ -17,12 +17,14 @@ import {
   Clock,
   AlertCircle,
   Timer,
-  Edit2
+  Edit2,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSessionModal } from '@/contexts/SessionModalContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStudyTimer } from '@/contexts/StudyTimerContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -45,6 +47,7 @@ export function Sidebar() {
   const { openModal } = useSessionModal();
   const { openInitialModal: openTimerModal, sessionActive, isWidgetOpen, toggleWidget } = useStudyTimer();
   const { logout } = useAuth();
+  const { isOpen, closeSidebar } = useSidebar();
   const [isNewSessionMenuOpen, setIsNewSessionMenuOpen] = useState(false);
   const newSessionRef = useRef<HTMLDivElement>(null);
 
@@ -85,12 +88,27 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[240px] z-40 bg-[#0a0a0b] border-r border-outline flex flex-col py-6 px-4 overflow-y-auto hide-scrollbar">
-      <div className="mb-8">
-        <Link to="/dashboard" className="text-2xl font-extrabold tracking-tight text-on-surface flex items-center gap-2">
-          Revisa<span className="text-primary">+</span>
-        </Link>
-      </div>
+    <>
+      {/* Overlay Mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-overlay-scrim/80 z-50 lg:hidden backdrop-blur-sm animate-in fade-in"
+          onClick={closeSidebar}
+        />
+      )}
+      
+      <aside className={cn(
+        "fixed left-0 top-0 h-screen w-[240px] z-[60] lg:z-40 bg-[var(--color-surface-container-lowest)] border-r border-outline flex flex-col py-6 px-4 overflow-y-auto hide-scrollbar transition-transform duration-300 ease-in-out lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="mb-8 flex items-center justify-between">
+          <Link to="/dashboard" onClick={closeSidebar} className="text-2xl font-extrabold tracking-tight text-on-surface flex items-center gap-2">
+            Revisa<span className="text-primary">+</span>
+          </Link>
+          <button onClick={closeSidebar} className="p-2 -mr-2 text-on-surface-variant hover:bg-hover-overlay rounded-lg lg:hidden">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
       <nav className="flex-1 flex flex-col">
         {navItems.map((item) => {
@@ -101,6 +119,7 @@ export function Sidebar() {
             <Link
               key={item.path}
               to={item.path}
+              onClick={closeSidebar}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm mb-1 transition-all duration-200",
                 isActive 
@@ -117,7 +136,7 @@ export function Sidebar() {
 
       <div className="mt-auto border-t border-outline pt-5 relative" ref={newSessionRef}>
         {isNewSessionMenuOpen && (
-          <div className="absolute bottom-full left-0 right-0 mb-2 bg-[#1a1b23] border border-outline/30 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
+          <div className="absolute bottom-full left-0 right-0 mb-2 bg-surface border border-outline/30 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
             <div className="p-1">
               <button onClick={handleOpenTimerMenu} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-white/5 rounded-lg transition-colors text-left group">
                 <Timer className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" /> 
@@ -142,7 +161,7 @@ export function Sidebar() {
           <Plus className="w-4 h-4" />
           Nova Sessão
         </button>
-        <Link to="/configuracoes" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all duration-200">
+        <Link to="/configuracoes" onClick={closeSidebar} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all duration-200">
           <Settings className="w-5 h-5" />
           <span>Configurações</span>
         </Link>
@@ -155,5 +174,6 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

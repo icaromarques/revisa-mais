@@ -101,7 +101,7 @@ export function ModalNovoTopico({ isOpen, onClose, topicoAtual, materiaId }: Mod
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-background/80 backdrop-blur-md overflow-y-auto pt-20">
-      <div className="w-full max-w-2xl glass-panel rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in duration-200">
+      <div className="w-full max-w-2xl glass-panel mx-4 rounded-2xl shadow-2xl flex flex-col animate-in fade-in zoom-in duration-200">
         
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between p-6 border-b border-outline bg-surface-container-low/50">

@@ -120,15 +120,16 @@ export function NotificationsPopover({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] lg:hidden" onClick={onClose} />
+      {/* Overlay transparente invisível apenas para fechar no clique fora */}
+      <div className="fixed inset-0 z-40 bg-transparent lg:hidden" onClick={onClose} />
       <motion.div 
         initial={{ opacity: 0, y: -10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -10, scale: 0.95 }}
-        className="absolute right-0 top-12 w-[320px] md:w-[420px] bg-[#0b0b0f] border border-outline shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-2xl z-50 overflow-hidden flex flex-col max-h-[85vh] origin-top-right"
+        className="absolute right-0 top-12 w-[90vw] sm:w-[320px] md:w-[420px] max-w-[420px] bg-surface border border-outline shadow-2xl rounded-2xl z-50 overflow-hidden flex flex-col max-h-[85vh] origin-top-right"
       >
         {/* Header */}
-        <div className="p-4 border-b border-outline/30 bg-surface-container-lowest/80 backdrop-blur-xl shrink-0">
+        <div className="p-4 border-b border-outline/30 bg-surface shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <h4 className="font-bold text-sm tracking-wide text-on-surface">Central de Alertas</h4>
@@ -178,7 +179,7 @@ export function NotificationsPopover({
         </div>
         
         {/* Body */}
-        <div className="overflow-y-auto custom-scrollbar flex-1 bg-[#0b0b0f]">
+        <div className="overflow-y-auto custom-scrollbar flex-1 bg-surface-container-lowest">
           {loading ? (
              <div className="p-4 space-y-4">
                {[1, 2, 3].map(i => (

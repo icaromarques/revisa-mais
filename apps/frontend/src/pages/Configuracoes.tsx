@@ -406,7 +406,7 @@ export function Configuracoes() {
     <div className="flex flex-col min-h-screen bg-background text-on-surface">
       <Header title="Configurações do Sistema" />
 
-      <main className="flex-1 p-8 max-w-6xl mx-auto w-full space-y-8 animate-in fade-in duration-500 pb-20">
+      <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
         
         {/* Executive Summary */}
         {summary && (
@@ -440,7 +440,7 @@ export function Configuracoes() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 items-start">
           
           {/* Navigation Sidebar */}
           <aside className="lg:col-span-4 space-y-2">
@@ -822,7 +822,7 @@ export function Configuracoes() {
                   <div className="space-y-8">
                     <div className="space-y-4">
                       <label className="text-[10px] font-black uppercase text-outline tracking-widest">Tema Visual</label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <button className="relative p-5 rounded-3xl border-2 border-primary bg-primary/5 flex flex-col items-center gap-3 group ring-4 ring-primary/5">
                           <div className="w-16 h-10 bg-[#0b0b0f] rounded-xl border border-outline shadow-2xl"></div>
                           <span className="text-[10px] font-black uppercase tracking-widest">Dark Premium</span>

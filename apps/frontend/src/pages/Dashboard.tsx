@@ -171,16 +171,19 @@ export function Dashboard() {
   return (
     <>
       <Header title="Dashboard">
-        <div className="flex items-center bg-surface-container-low rounded-full border border-outline-variant/10 ml-4 shadow-inner p-1 relative">
-          {(['hoje', 'amanha', '7d', 'mes'] as TimeRange[]).map(rt => (
-            <button 
-              key={rt}
-              onClick={() => handleSelectPredefined(rt)}
-              className={`px-4 py-1 text-xs font-bold rounded-full transition-all capitalize whitespace-nowrap ${timeRange === rt ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
-            >
-              {rt === '7d' ? '7 Dias' : rt}
-            </button>
-          ))}
+        <div className="flex items-center bg-surface-container-low rounded-full border border-outline-variant/10 ml-2 md:ml-4 shadow-inner p-1 relative">
+          {/* Oculta os botões textuais em telas muito pequenas */}
+          <div className="hidden sm:flex">
+            {(['hoje', 'amanha', '7d', 'mes'] as TimeRange[]).map(rt => (
+              <button 
+                key={rt}
+                onClick={() => handleSelectPredefined(rt)}
+                className={`px-3 md:px-4 py-1 text-[10px] md:text-xs font-bold rounded-full transition-all capitalize whitespace-nowrap ${timeRange === rt ? 'bg-primary text-on-primary shadow-md' : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
+              >
+                {rt === '7d' ? '7 Dias' : rt}
+              </button>
+            ))}
+          </div>
           
           <div className="relative ml-1" ref={periodMenuRef}>
             <button
@@ -192,9 +195,28 @@ export function Dashboard() {
             </button>
             
             {isPeriodMenuOpen && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-full mt-3 w-56 bg-[#18191e] border border-outline/30 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] ring-1 ring-black/50 overflow-hidden z-[100]">
+              <div className="absolute right-0 md:left-1/2 md:-translate-x-1/2 top-full mt-3 w-56 bg-popover border border-outline/30 rounded-2xl shadow-2xl ring-1 ring-outline/20 overflow-hidden z-[100]">
                 {!showCustomRangePicker ? (
                   <div className="flex flex-col p-2 gap-1 text-sm bg-transparent">
+                    {/* Em mobile, exibe as opções que estavam ocultas na barra */}
+                    <div className="sm:hidden flex flex-col gap-1 pb-2 mb-2 border-b border-outline/10">
+                       <span className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant px-3 py-1">Padrão</span>
+                       {(['hoje', 'amanha', '7d', 'mes'] as TimeRange[]).map(rt => (
+                          <button
+                            key={`mob-${rt}`}
+                            onClick={() => handleSelectPredefined(rt)}
+                            className={`text-left px-3 py-2 rounded-lg transition-colors font-bold ${
+                              timeRange === rt 
+                                ? 'bg-primary/15 text-primary' 
+                                : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+                            }`}
+                          >
+                            {rt === '7d' ? '7 Dias' : rt === 'mes' ? 'Mês' : rt.charAt(0).toUpperCase() + rt.slice(1)}
+                          </button>
+                       ))}
+                    </div>
+                    
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant px-3 py-1">Outros</span>
                     {(['ontem', '3d', 'semana', '30d'] as TimeRange[]).map(rt => (
                         <button
                           key={rt}
@@ -251,7 +273,7 @@ export function Dashboard() {
         </div>
       </Header>
 
-      <div className="p-8 space-y-8 max-w-[1400px] mx-auto w-full animate-in fade-in duration-500">
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8 max-w-[1400px] mx-auto w-full animate-in fade-in duration-500 pb-20">
         
         <div className="text-[11px] font-black text-on-surface-variant mb-4 uppercase tracking-widest flex items-center gap-2">
           <CalendarDays className="w-3.5 h-3.5" />
@@ -277,7 +299,7 @@ export function Dashboard() {
         </SectionErrorBoundary>
 
         {/* Action Level & Organization Level */}
-        <div className="grid grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
            
            {/* Coluna Principal Hoje (Central) */}
            <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">

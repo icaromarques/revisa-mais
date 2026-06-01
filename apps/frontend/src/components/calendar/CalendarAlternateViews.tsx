@@ -49,7 +49,7 @@ export function CalendarDayView({ currentDate, events, onEventClick, getTypeStyl
               <div className="w-14 shrink-0 py-2 pr-2 text-right text-[10px] font-bold text-outline">
                 {String(hour).padStart(2, '0')}:00
               </div>
-              <div className="flex-1 p-1 space-y-1 border-l border-outline/10">
+              <div className="flex-1 min-w-0 p-1 space-y-1 border-l border-outline/10">
                 {slotEvents.map((event, idx) => {
                   const style = getTypeStyle(event.tipo, event.cor);
                   return (
@@ -84,8 +84,9 @@ export function CalendarWeekView({ currentDate, events, onDayClick, onEventClick
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   return (
-    <div className="border border-outline/10 rounded-2xl overflow-hidden">
-      <div className="grid grid-cols-7 bg-surface-container border-b border-outline/10">
+    <div className="border border-outline/10 rounded-2xl overflow-hidden custom-scrollbar">
+      <div className="w-full">
+        <div className="grid grid-cols-7 bg-surface-container border-b border-outline/10">
         {days.map((day) => (
           <button
             key={day.toISOString()}
@@ -95,7 +96,7 @@ export function CalendarWeekView({ currentDate, events, onDayClick, onEventClick
               isToday(day) ? 'bg-primary/10' : ''
             }`}
           >
-            <div className="text-[10px] font-bold text-outline uppercase">{format(day, 'EEE', { locale: ptBR })}</div>
+            <div className="text-[10px] font-bold text-outline uppercase">{format(day, 'E', { locale: ptBR })}</div>
             <div
               className={`text-sm font-black mt-0.5 w-7 h-7 mx-auto flex items-center justify-center rounded-full ${
                 isToday(day) ? 'bg-primary text-on-primary' : ''
@@ -114,28 +115,49 @@ export function CalendarWeekView({ currentDate, events, onDayClick, onEventClick
           return (
             <div
               key={`week-col-${day.toISOString()}`}
-              className="border-r border-outline/10 last:border-r-0 p-1 space-y-1 overflow-y-auto max-h-[420px] custom-scrollbar"
+              className="border-r border-outline/10 last:border-r-0 p-1 space-y-1 overflow-y-auto max-h-[420px] custom-scrollbar min-w-0"
             >
-              {dayEvents.slice(0, 8).map((event, idx) => {
-                const style = getTypeStyle(event.tipo, event.cor);
-                return (
-                  <button
-                    key={getCalendarRenderKey(event, 'week', idx)}
-                    type="button"
-                    onClick={(ev) => onEventClick(ev, event)}
-                    className="w-full text-left text-[9px] px-1.5 py-0.5 rounded border truncate font-medium"
-                    style={{ backgroundColor: style.bg, color: style.text, borderColor: style.border }}
-                  >
-                    {!event.dia_inteiro && formatEventTime(event.data_inicio)} {event.titulo}
-                  </button>
-                );
-              })}
-              {dayEvents.length > 8 && (
-                <span className="text-[9px] text-outline px-1">+{dayEvents.length - 8}</span>
-              )}
+              {/* Desktop View (Text Blocks) */}
+              <div className="hidden md:block space-y-1">
+                {dayEvents.slice(0, 8).map((event, idx) => {
+                  const style = getTypeStyle(event.tipo, event.cor);
+                  return (
+                    <button
+                      key={getCalendarRenderKey(event, 'week', idx)}
+                      type="button"
+                      onClick={(ev) => onEventClick(ev, event)}
+                      className="w-full text-left text-[9px] px-1.5 py-0.5 rounded border truncate font-medium"
+                      style={{ backgroundColor: style.bg, color: style.text, borderColor: style.border }}
+                    >
+                      {!event.dia_inteiro && formatEventTime(event.data_inicio)} {event.titulo}
+                    </button>
+                  );
+                })}
+                {dayEvents.length > 8 && (
+                  <span className="text-[9px] text-outline px-1">+{dayEvents.length - 8}</span>
+                )}
+              </div>
+
+              {/* Mobile View (Dots) */}
+              <div className="md:hidden flex flex-wrap gap-1 mt-1 justify-center px-0.5">
+                {dayEvents.slice(0, 6).map((event, idx) => {
+                  const style = getTypeStyle(event.tipo, event.cor);
+                  return (
+                    <div 
+                      key={getCalendarRenderKey(event, 'week_mobile', idx)}
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: style.text }}
+                    />
+                  );
+                })}
+                {dayEvents.length > 6 && (
+                  <span className="text-[8px] text-outline font-bold">+{dayEvents.length - 6}</span>
+                )}
+              </div>
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );
