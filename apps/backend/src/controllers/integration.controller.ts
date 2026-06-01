@@ -36,7 +36,12 @@ export const integrationController = {
       });
 
       if (calendars.length === 0) {
-        await googleCalendarService.refreshCalendarList(userId);
+        try {
+          await googleCalendarService.refreshCalendarList(userId);
+        } catch (refreshError) {
+          console.error('listGoogleCalendars refresh failed:', refreshError);
+          await googleCalendarService.ensureDefaultCalendars(userId);
+        }
         calendars = await prisma.userGoogleCalendar.findMany({
           where: { userId },
           orderBy: [{ primary: 'desc' }, { summary: 'asc' }]
@@ -44,8 +49,21 @@ export const integrationController = {
       }
 
       res.json(calendars.map((c) => toSnakeCase(c)));
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const code = error?.code;
+      if (code === 'P2021') {
+        return res.status(503).json({
+          error: 'Tabela de agendas não encontrada. Execute prisma migrate deploy no backend.',
+          code: 'DB_MIGRATION_REQUIRED'
+        });
+      }
+      if (code === 403 || error?.message?.includes('Insufficient Permission')) {
+        return res.status(403).json({
+          error: 'Permissão insuficiente para listar agendas. Faça logout e login novamente.',
+          code: 'GOOGLE_SCOPE_MISSING'
+        });
+      }
       res.status(500).json({ error: 'Erro ao listar agendas do Google' });
     }
   },

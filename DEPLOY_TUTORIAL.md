@@ -57,6 +57,7 @@ O Render é ótimo para hospedar APIs Node.js de forma gratuita.
    - `GOOGLE_CLIENT_SECRET` -> Copie a chave secreta gerada no Google Console.
    - `FRONTEND_URL` -> Vamos precisar atualizar essa variável **DEPOIS**, quando tivermos a URL da Vercel. Por hora, coloque um valor temporário, ou se já tiver a URL do Vercel planejada, insira.
    - `GOOGLE_REDIRECT_URI` -> Ex: `https://revisa-backend.onrender.com/api/auth/google/callback` (Substitua "revisa-backend" pela URL real que o Render vai gerar para o seu serviço).
+   - Após adicionar o domínio customizado (`revisa.app.br`), atualize também `FRONTEND_URL` e faça **logout + login** no app para o Google conceder o escopo de listagem de agendas (`calendar.calendarlist.readonly`).
 9. Clique em **"Create Web Service"**.
 10. O Render começará a fazer o build. Anote a **URL do backend** que o Render forneceu no canto superior esquerdo (ex: `https://revisa-backend-xyz.onrender.com`).
 11. **IMPORTANTE**: Após o build terminar e a URL estiver pronta, lembre-se de ir no seu projeto no **Google Cloud Console**:

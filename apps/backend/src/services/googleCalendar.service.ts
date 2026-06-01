@@ -27,6 +27,22 @@ export const googleCalendarService = {
     return any?.googleCalendarId || 'primary';
   },
 
+  /** Ensures at least the primary calendar exists when calendarList API is unavailable. */
+  async ensureDefaultCalendars(userId: string): Promise<void> {
+    const existing = await prisma.userGoogleCalendar.findFirst({ where: { userId } });
+    if (existing) return;
+
+    await prisma.userGoogleCalendar.create({
+      data: {
+        userId,
+        googleCalendarId: 'primary',
+        summary: 'Principal',
+        primary: true,
+        selected: true
+      }
+    });
+  },
+
   /**
    * Fetches calendar list from Google and upserts into user_google_calendars.
    * On first insert, `selected` mirrors Google's sidebar visibility.
@@ -249,11 +265,23 @@ export const googleCalendarService = {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user || !user.googleRefreshToken) return;
 
-      await this.refreshCalendarList(userId);
+      try {
+        await this.refreshCalendarList(userId);
+      } catch (refreshError) {
+        console.error(`refreshCalendarList failed for user ${userId}:`, refreshError);
+        await this.ensureDefaultCalendars(userId);
+      }
 
-      const calendars = await prisma.userGoogleCalendar.findMany({
+      let calendars = await prisma.userGoogleCalendar.findMany({
         where: { userId, selected: true }
       });
+
+      if (calendars.length === 0) {
+        await this.ensureDefaultCalendars(userId);
+        calendars = await prisma.userGoogleCalendar.findMany({
+          where: { userId, selected: true }
+        });
+      }
 
       if (calendars.length === 0) {
         await prisma.user.update({
