@@ -1,5 +1,6 @@
 import { google, calendar_v3 } from 'googleapis';
 import { prisma } from '../config/prisma';
+import { emitCalendarUpdated } from '../ws/emit';
 
 type CalendarSyncOptions = {
   /** Incremental sync via syncToken. Disabled when timeMin/timeMax is set. */
@@ -328,9 +329,12 @@ export const googleCalendarService = {
         return;
       }
 
+      let totalImported = 0;
+
       for (const cal of calendars) {
         try {
-          await this.syncSingleCalendar(userId, cal.googleCalendarId, options);
+          const imported = await this.syncSingleCalendar(userId, cal.googleCalendarId, options);
+          totalImported += imported;
           await this.registerWatchChannel(userId, cal.googleCalendarId);
         } catch (calError) {
           console.error(
@@ -347,6 +351,11 @@ export const googleCalendarService = {
           gcalTokenStatus: 'active',
           gcalLastError: null
         }
+      });
+
+      emitCalendarUpdated(userId, {
+        source: options.timeMin || options.incremental === false ? 'manual' : 'sync',
+        imported: totalImported
       });
     } catch (error: any) {
       console.error(`Error during calendar sync for user ${userId}:`, error);

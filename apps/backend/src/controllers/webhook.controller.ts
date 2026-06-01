@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
 import { googleCalendarService } from '../services/googleCalendar.service';
+import { emitCalendarUpdated } from '../ws/emit';
 
 export const googleWebhookController = {
   async handleCalendarWebhook(req: Request, res: Response) {
@@ -29,6 +30,13 @@ export const googleWebhookController = {
 
       googleCalendarService
         .syncSingleCalendar(cal.userId, cal.googleCalendarId, { incremental: true })
+        .then((imported) => {
+          emitCalendarUpdated(cal.userId, {
+            source: 'webhook',
+            googleCalendarId: cal.googleCalendarId,
+            imported
+          });
+        })
         .catch((err: Error) => {
           console.error(`[Webhook Calendar] Sync error for user ${cal.userId}:`, err);
         });

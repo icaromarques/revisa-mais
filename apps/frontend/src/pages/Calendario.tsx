@@ -31,6 +31,8 @@ import {
 } from '@/components/calendar/CalendarAlternateViews';
 import { UserGoogleCalendar } from '@/types/googleCalendar';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useWebSocketEvent } from '@/hooks/useWebSocketEvent';
+import type { CalendarUpdatedPayload } from '@/types/ws';
 
 export function Calendario() {
   const { user } = useAuth();
@@ -70,6 +72,11 @@ export function Calendario() {
   useEffect(() => {
     loadGoogleCalendars();
   }, [loadGoogleCalendars]);
+
+  useWebSocketEvent<CalendarUpdatedPayload>('calendar.updated', () => {
+    setReloadToken((t) => t + 1);
+    void loadGoogleCalendars();
+  });
 
   const handleToggleGoogleCalendar = async (googleCalendarId: string, selected: boolean) => {
     const previous = googleCalendars;

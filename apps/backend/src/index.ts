@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -46,6 +47,7 @@ import adminRoutes from './routes/admin.routes';
 import integrationRoutes from './routes/integration.routes';
 import cadernoRoutes from './routes/caderno.routes';
 import questaoRoutes from './routes/questao.routes';
+import { attachWebSocketServer } from './ws/server';
 
 dotenv.config();
 
@@ -111,6 +113,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+const httpServer = http.createServer(app);
+attachWebSocketServer(httpServer);
+
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT} (HTTP + WebSocket /ws)`);
 });

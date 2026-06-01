@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { SessionModalProvider } from './contexts/SessionModalContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 import { StudyTimerProvider } from './contexts/StudyTimerContext';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -39,6 +40,7 @@ export default function App() {
     <GlobalErrorBoundary>
       <BrowserRouter>
       <AuthProvider>
+        <WebSocketProvider>
         <ConfirmProvider>
           <SessionModalProvider>
             <StudyTimerProvider>
@@ -88,6 +90,7 @@ export default function App() {
           </StudyTimerProvider>
         </SessionModalProvider>
         </ConfirmProvider>
+        </WebSocketProvider>
       </AuthProvider>
     </BrowserRouter>
     </GlobalErrorBoundary>

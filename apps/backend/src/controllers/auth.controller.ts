@@ -167,5 +167,16 @@ export const authController = {
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
     });
     res.json({ success: true });
+  },
+
+  /** Short-lived token for WebSocket auth (works cross-origin without cookie on upgrade). */
+  async getWsToken(req: Request, res: Response) {
+    const userId = (req as any).user.id;
+    const token = jwt.sign(
+      { id: userId, purpose: 'ws' },
+      process.env.JWT_SECRET || 'fallback_secret',
+      { expiresIn: '5m' }
+    );
+    res.json({ token, expiresIn: 300 });
   }
 };

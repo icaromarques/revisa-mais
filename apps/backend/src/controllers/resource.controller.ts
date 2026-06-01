@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
 import { asString, bodyField, parseDate, queryString, toSnakeCase } from '../utils/responseMapper';
+import { emitNotificationCreated } from '../ws/emit';
 
 async function assertMateria(materiaId: string, userId: string) {
   return prisma.materia.findFirst({ where: { id: materiaId, userId } });
@@ -459,7 +460,7 @@ export const notificacaoController = {
           }
         });
         if (!existing) {
-          await prisma.notificacao.create({
+          const created = await prisma.notificacao.create({
             data: {
               userId,
               tipo: 'revisao_atrasada',
@@ -467,6 +468,10 @@ export const notificacaoController = {
               mensagem: `${rev.nome} (${rev.materia?.nome || 'Matéria'}) está pendente.`,
               metadataJson: { revisao_id: rev.id }
             }
+          });
+          emitNotificationCreated(userId, {
+            notificationId: created.id,
+            action: 'created'
           });
         }
       }

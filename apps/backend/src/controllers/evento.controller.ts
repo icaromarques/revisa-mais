@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
 import { asString, bodyField, queryString, toSnakeCase } from '../utils/responseMapper';
+import { emitCalendarUpdated } from '../ws/emit';
 
 export const eventoController = {
   async getEventos(req: Request, res: Response) {
@@ -62,6 +63,8 @@ export const eventoController = {
         googleCalendarService.upsertEvent(userId, evento.id).catch(console.error);
       });
 
+      emitCalendarUpdated(userId, { source: 'evento' });
+
       res.status(201).json(toSnakeCase(evento));
     } catch (error) {
       console.error(error);
@@ -101,6 +104,8 @@ export const eventoController = {
         googleCalendarService.upsertEvent(userId, id).catch(console.error);
       });
 
+      emitCalendarUpdated(userId, { source: 'evento' });
+
       res.json(toSnakeCase(updated));
     } catch (error) {
       console.error(error);
@@ -129,6 +134,8 @@ export const eventoController = {
             .catch(console.error);
         });
       }
+
+      emitCalendarUpdated(userId, { source: 'evento' });
 
       res.json({ success: true });
     } catch (error) {

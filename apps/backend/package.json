@@ -16,12 +16,14 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
+    "@types/cookie": "^0.6.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.9.1",
+    "@types/ws": "^8.18.1",
     "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.3",
@@ -39,6 +41,7 @@
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
-    "side-channel-list": "^1.0.1"
+    "side-channel-list": "^1.0.1",
+    "ws": "^8.21.0"
   }
 }

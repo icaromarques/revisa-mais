@@ -100,6 +100,40 @@ sequenceDiagram
     F->>U: Renders Dashboard
 ```
 
+## 🔴 Real-Time (WebSocket)
+
+The backend exposes a WebSocket endpoint at `/ws` on the same HTTP server (Render supports WS on Web Services).
+
+```mermaid
+sequenceDiagram
+    participant F as Frontend
+    participant B as Backend /ws
+    participant G as Google Webhook
+
+    F->>B: GET /api/auth/ws-token (session cookie)
+    B-->>F: short-lived JWT (5 min)
+    F->>B: WebSocket connect ?token=...
+    B-->>F: connected
+
+    G->>B: POST /api/webhooks/google-calendar
+    B->>B: syncSingleCalendar + DB update
+    B-->>F: calendar.updated
+
+    Note over F: Calendario reloads events;<br/>notifications hook refetches on notification.*
+```
+
+**Event types (extend `apps/backend/src/ws/types.ts`):**
+
+| Event | When emitted | Frontend subscriber |
+|-------|----------------|---------------------|
+| `calendar.updated` | GCal webhook, sync, CRUD evento | `Calendario.tsx` |
+| `notification.created` | New notification in DB | `useNotifications` |
+| `notification.updated` | Notification status change (future) | `useNotifications` |
+
+Publish from anywhere via `emitCalendarUpdated`, `emitNotificationCreated` in `apps/backend/src/ws/emit.ts`.
+
+Optional env: `VITE_WS_URL` (defaults to `VITE_API_URL` host with `wss:` + `/ws`).
+
 ## 🚀 Deployment Pipeline
 
 - **Frontend:** Pushes to `main` auto-deploy to Vercel. SPA routing is handled by `vercel.json` rewriting to `/index.html`.

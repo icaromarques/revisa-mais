@@ -2,8 +2,7 @@ import { apiClient } from '@/lib/api';
 import { EventoAcademico } from '@/types/calendar';
 
 export const calendarService = {
-  // Esse hook antes usava `onSnapshot` do Firestore.
-  // Agora, adaptamos para fazer um request via GET na API. (Idealmente deve ser substituído por polling ou websockets onde for chamado)
+  // Fetches events via REST; real-time updates via WebSocket (calendar.updated).
   async fetchUserEvents(userId: string): Promise<EventoAcademico[]> {
     const { data } = await apiClient.get('/eventos');
     return data;
