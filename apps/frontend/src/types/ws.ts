@@ -23,4 +23,5 @@ export interface CalendarUpdatedPayload {
 export interface NotificationEventPayload {
   notificationId?: string;
   action?: 'created' | 'updated' | 'deleted';
+  notification?: Record<string, unknown>;
 }

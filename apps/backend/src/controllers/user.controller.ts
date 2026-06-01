@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { prisma } from '../config/prisma';
 import { bodyField, parseDate, toSnakeCase } from '../utils/responseMapper';
+import { mapNotificacoesToApi } from '../utils/notificationMapper';
+import { notificationEngine } from '../services/notificationEngine.service';
 
 async function getOrCreateProfile(userId: string) {
   let profile = await prisma.userProfile.findUnique({ where: { userId } });
@@ -114,6 +116,9 @@ export const userController = {
         create: { userId, preferencesJson: req.body },
         update: { preferencesJson: req.body }
       });
+
+      notificationEngine.syncUserNotifications(userId).catch(console.error);
+
       res.json(prefs.preferencesJson);
     } catch (error) {
       console.error(error);
@@ -232,7 +237,7 @@ export const userController = {
         where: { userId },
         orderBy: { createdAt: 'desc' }
       });
-      res.json(items.map((n) => toSnakeCase(n)));
+      res.json(mapNotificacoesToApi(items));
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Erro ao buscar notificações' });

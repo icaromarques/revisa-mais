@@ -130,6 +130,8 @@ sequenceDiagram
 | `notification.created` | New notification in DB | `useNotifications` |
 | `notification.updated` | Notification status change (future) | `useNotifications` |
 
+The **notification engine** (`notificationEngine.service.ts`) reads user preference toggles from Configurações (`revisoes_automaticas`, `lembretes_estudo`, `avaliacoes_provas`, `metas_streaks`) and emits `notification.created` via WebSocket when a new alert is persisted.
+
 Publish from anywhere via `emitCalendarUpdated`, `emitNotificationCreated` in `apps/backend/src/ws/emit.ts`.
 
 Optional env: `VITE_WS_URL` (defaults to `VITE_API_URL` host with `wss:` + `/ws`).

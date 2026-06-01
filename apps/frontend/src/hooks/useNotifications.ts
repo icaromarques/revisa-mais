@@ -3,7 +3,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { AppNotification } from '@/types/notifications';
 import { apiClient } from '@/lib/api';
+import { notificationService } from '@/services/notificationService';
 import { useWebSocketEvent } from '@/hooks/useWebSocketEvent';
+import type { NotificationEventPayload } from '@/types/ws';
 
 export function useNotifications() {
   const { user } = useAuth();
@@ -34,9 +36,9 @@ export function useNotifications() {
     }
 
     setLoading(true);
+    void notificationService.syncNotificationsFromModules(user.id);
     void fetchNotifications();
 
-    // Fallback polling when WebSocket is disconnected
     const pollMs = wsConnected ? 5 * 60 * 1000 : 60 * 1000;
     const interval = setInterval(() => {
       void fetchRef.current();
@@ -45,7 +47,15 @@ export function useNotifications() {
     return () => clearInterval(interval);
   }, [user, wsConnected, fetchNotifications]);
 
-  useWebSocketEvent('notification.created', () => {
+  useWebSocketEvent<NotificationEventPayload>('notification.created', (payload) => {
+    if (payload?.notification) {
+      setNotifications((prev) => {
+        const incoming = payload.notification as unknown as AppNotification;
+        if (prev.some((n) => n.id === incoming.id)) return prev;
+        return [incoming, ...prev];
+      });
+      return;
+    }
     void fetchRef.current();
   });
 

@@ -46,6 +46,10 @@ class WebSocketHub {
     }
     return total;
   }
+
+  getConnectedUserIds(): string[] {
+    return [...this.clients.keys()];
+  }
 }
 
 export const wsHub = new WebSocketHub();

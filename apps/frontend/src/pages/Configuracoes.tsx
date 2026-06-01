@@ -16,6 +16,7 @@ import { IntelligentPreferences } from '@/components/settings/IntelligentPrefere
 import { userPreferencesService } from '@/services/userPreferencesService';
 import { UserPreferences, DEFAULT_PREFERENCES } from '@/types/preferences';
 import { settingsPresetService, FullConfiguration } from '@/services/settingsPresetService';
+import { notificationService } from '@/services/notificationService';
 
 function GoogleCalendarSettings() {
   const [isConnected, setIsConnected] = useState(false);
@@ -497,13 +498,38 @@ export function Configuracoes() {
                   </div>
 
                   <div className="space-y-3">
-                    {[
-                      { title: "Revisões Automáticas", desc: "Avisar quando houver revisões agendadas para o dia", icon: Zap },
-                      { title: "Lembretes de Estudo", desc: "Notificar início de sessões e horários de grade", icon: Clock },
-                      { title: "Avaliações e Provas", desc: "Alertas para compromissos acadêmicos fixos", icon: CalendarIcon },
-                      { title: "Metas e Streaks", desc: "Avisos sobre progresso e conquistas diárias", icon: Monitor }
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-5 bg-surface-container-low/30 rounded-2xl border border-outline/30 hover:border-primary/20 transition-all">
+                    {(
+                      [
+                        {
+                          key: 'revisoes_automaticas' as const,
+                          title: 'Revisões Automáticas',
+                          desc: 'Avisar quando houver revisões agendadas para o dia',
+                          icon: Zap
+                        },
+                        {
+                          key: 'lembretes_estudo' as const,
+                          title: 'Lembretes de Estudo',
+                          desc: 'Notificar início de sessões e horários de grade',
+                          icon: Clock
+                        },
+                        {
+                          key: 'avaliacoes_provas' as const,
+                          title: 'Avaliações e Provas',
+                          desc: 'Alertas para compromissos acadêmicos fixos',
+                          icon: CalendarIcon
+                        },
+                        {
+                          key: 'metas_streaks' as const,
+                          title: 'Metas e Streaks',
+                          desc: 'Avisos sobre progresso e conquistas diárias',
+                          icon: Monitor
+                        }
+                      ] as const
+                    ).map((item) => (
+                      <div
+                        key={item.key}
+                        className="flex items-center justify-between p-5 bg-surface-container-low/30 rounded-2xl border border-outline/30 hover:border-primary/20 transition-all"
+                      >
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-primary/5 rounded-xl flex items-center justify-center">
                             <item.icon className="w-5 h-5 text-primary" />
@@ -514,8 +540,35 @@ export function Configuracoes() {
                           </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" defaultChecked={true} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+                          <input
+                            type="checkbox"
+                            checked={preferences.notifications[item.key] ?? true}
+                            onChange={async (e) => {
+                              const checked = e.target.checked;
+                              const next = {
+                                ...preferences,
+                                notifications: {
+                                  ...preferences.notifications,
+                                  [item.key]: checked
+                                }
+                              };
+                              setPreferences(next);
+                              try {
+                                await userPreferencesService.updatePreferences(
+                                  user!.id,
+                                  'notifications',
+                                  { [item.key]: checked }
+                                );
+                                await notificationService.syncNotificationsFromModules(user!.id);
+                                toast.success('Preferências de notificação atualizadas.');
+                              } catch {
+                                setPreferences(preferences);
+                                toast.error('Não foi possível salvar a preferência.');
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-inner" />
                         </label>
                       </div>
                     ))}

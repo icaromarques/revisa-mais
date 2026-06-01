@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
 import { asString, bodyField, parseDate, queryString, toSnakeCase } from '../utils/responseMapper';
-import { emitNotificationCreated } from '../ws/emit';
+import { mapNotificacoesToApi } from '../utils/notificationMapper';
+import { notificationEngine } from '../services/notificationEngine.service';
 
 async function assertMateria(materiaId: string, userId: string) {
   return prisma.materia.findFirst({ where: { id: materiaId, userId } });
@@ -364,7 +365,7 @@ export const notificacaoController = {
         where: { userId },
         orderBy: { createdAt: 'desc' }
       });
-      res.json(items.map((n) => toSnakeCase(n)));
+      res.json(mapNotificacoesToApi(items));
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Erro ao buscar notificações' });
@@ -444,38 +445,8 @@ export const notificacaoController = {
   async syncFromModules(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const now = new Date();
-      const overdue = await prisma.revisao.findMany({
-        where: { userId, status: 'pendente', dataPrevista: { lt: now } },
-        include: { materia: { select: { nome: true } } },
-        take: 20
-      });
-
-      for (const rev of overdue) {
-        const existing = await prisma.notificacao.findFirst({
-          where: {
-            userId,
-            tipo: 'revisao_atrasada',
-            metadataJson: { path: ['revisao_id'], equals: rev.id }
-          }
-        });
-        if (!existing) {
-          const created = await prisma.notificacao.create({
-            data: {
-              userId,
-              tipo: 'revisao_atrasada',
-              titulo: 'Revisão atrasada',
-              mensagem: `${rev.nome} (${rev.materia?.nome || 'Matéria'}) está pendente.`,
-              metadataJson: { revisao_id: rev.id }
-            }
-          });
-          emitNotificationCreated(userId, {
-            notificationId: created.id,
-            action: 'created'
-          });
-        }
-      }
-      res.json({ success: true, synced: overdue.length });
+      const created = await notificationEngine.syncUserNotifications(userId);
+      res.json({ success: true, synced: created });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Erro ao sincronizar notificações' });

@@ -25,6 +25,18 @@ setInterval(async () => {
   }
 }, 30 * 60 * 1000);
 
+// Notification engine for connected users (respects preference toggles)
+setInterval(async () => {
+  try {
+    const userIds = wsHub.getConnectedUserIds();
+    for (const userId of userIds) {
+      await notificationEngine.syncUserNotifications(userId);
+    }
+  } catch (err) {
+    console.error('[Cron] Notification engine error:', err);
+  }
+}, 2 * 60 * 1000);
+
 // Routes
 import authRoutes from './routes/auth.routes';
 import materiaRoutes from './routes/materia.routes';
@@ -48,6 +60,8 @@ import integrationRoutes from './routes/integration.routes';
 import cadernoRoutes from './routes/caderno.routes';
 import questaoRoutes from './routes/questao.routes';
 import { attachWebSocketServer } from './ws/server';
+import { wsHub } from './ws/hub';
+import { notificationEngine } from './services/notificationEngine.service';
 
 dotenv.config();
 

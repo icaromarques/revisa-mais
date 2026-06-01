@@ -25,7 +25,11 @@ export interface UserPreferences {
     auto_title: boolean;
   };
   notifications: {
-    min_priority: 'baixa' | 'media' | 'alta' | 'critica';
+    min_priority?: 'baixa' | 'media' | 'alta' | 'critica';
+    revisoes_automaticas?: boolean;
+    lembretes_estudo?: boolean;
+    avaliacoes_provas?: boolean;
+    metas_streaks?: boolean;
   };
   googleCalendar?: {
     syncReviewsByDefault?: boolean;
@@ -59,6 +63,10 @@ export const DEFAULT_PREFERENCES: Omit<UserPreferences, 'user_id' | 'created_at'
   },
   notifications: {
     min_priority: 'baixa',
+    revisoes_automaticas: true,
+    lembretes_estudo: true,
+    avaliacoes_provas: true,
+    metas_streaks: true
   },
   googleCalendar: {
     syncReviewsByDefault: true,
