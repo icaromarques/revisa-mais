@@ -207,7 +207,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
           {isUserMenuOpen && (
             <>
               <div className="fixed inset-0 z-40 bg-black/5" onClick={() => setIsUserMenuOpen(false)}></div>
-              <div className="absolute right-0 mt-3 w-64 bg-[#0f1117] border border-outline/30 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute right-0 mt-3 w-64 bg-popover border border-outline/30 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="p-5 border-b border-outline/20 bg-surface-container-low/20">
                   <div className="flex items-center gap-3 mb-1">
                     <div className="w-10 h-10 rounded-full border-2 border-primary/20 overflow-hidden">
@@ -224,26 +224,26 @@ export function Header({ title, subtitle, children }: HeaderProps) {
                   <Link 
                     to="/perfil" 
                     onClick={() => setIsUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-white/5 rounded-xl transition-all group"
+                    className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-hover-overlay rounded-xl transition-all group"
                   >
                     <UserIcon className="w-4 h-4 text-outline group-hover:text-primary transition-colors" /> Perfil
                   </Link>
                   <Link 
                     to="/configuracoes" 
                     onClick={() => setIsUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-white/5 rounded-xl transition-all group"
+                    className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-hover-overlay rounded-xl transition-all group"
                   >
                     <Settings className="w-4 h-4 text-outline group-hover:text-primary transition-colors" /> Configurações
                   </Link>
                   <Link 
                     to="/notificacoes" 
                     onClick={() => setIsUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-white/5 rounded-xl transition-all group"
+                    className="flex items-center gap-3 px-4 py-3 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-hover-overlay rounded-xl transition-all group"
                   >
                     <Bell className="w-4 h-4 text-outline group-hover:text-primary transition-colors" /> Notificações
                   </Link>
                   
-                  <div className="h-[1px] bg-white/5 my-2 mx-3"></div>
+                  <div className="h-[1px] bg-divider my-2 mx-3"></div>
                   
                   <button 
                     onClick={handleLogout}

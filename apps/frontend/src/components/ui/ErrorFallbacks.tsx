@@ -12,7 +12,7 @@ interface FallbackProps {
 
 export function GlobalErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#050505] flex items-center justify-center p-6 text-center">
+    <div className="fixed inset-0 z-[9999] bg-background flex items-center justify-center p-6 text-center">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,59,48,0.05),transparent_70%)]" />
       
       <motion.div 

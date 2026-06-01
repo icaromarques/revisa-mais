@@ -1,7 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'sonner';
 import { SessionModalProvider } from './contexts/SessionModalContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeAwareToaster } from './components/ThemeAwareToaster';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import { StudyTimerProvider } from './contexts/StudyTimerContext';
 import { ConfirmProvider } from './contexts/ConfirmContext';
@@ -40,6 +41,7 @@ export default function App() {
     <GlobalErrorBoundary>
       <BrowserRouter>
       <AuthProvider>
+        <ThemeProvider>
         <WebSocketProvider>
         <ConfirmProvider>
           <SessionModalProvider>
@@ -78,19 +80,12 @@ export default function App() {
             <SessionModal />
             <StudyTimerWidget />
             <StudyTimerInitialModal />
-            <Toaster 
-              position="top-right" 
-              theme="dark" 
-              richColors 
-              duration={3000} 
-              visibleToasts={3}
-              closeButton
-              expand={false}
-            />
+            <ThemeAwareToaster />
           </StudyTimerProvider>
         </SessionModalProvider>
         </ConfirmProvider>
         </WebSocketProvider>
+        </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
     </GlobalErrorBoundary>

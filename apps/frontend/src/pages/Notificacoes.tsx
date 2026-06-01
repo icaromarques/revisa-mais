@@ -86,7 +86,7 @@ export function Notificacoes() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#060608]">
+    <div className="flex flex-col min-h-screen bg-background">
       <Header title="Notificações" subtitle="Central de Alertas e Insights" />
 
       <main className="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-8 animate-in fade-in duration-500">

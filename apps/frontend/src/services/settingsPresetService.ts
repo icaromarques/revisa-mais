@@ -5,7 +5,10 @@ import { userPreferencesService } from './userPreferencesService';
 
 export type PresetId = 'leve' | 'equilibrado' | 'intensivo' | 'pre_prova' | 'personalizado';
 
+export type ThemePreference = 'dark' | 'light' | 'system';
+
 export interface UserSettingsDoc {
+  theme?: ThemePreference;
   restWindow?: {
     active: boolean;
     start: string;

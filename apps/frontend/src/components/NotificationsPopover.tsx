@@ -125,7 +125,7 @@ export function NotificationsPopover({
         initial={{ opacity: 0, y: -10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -10, scale: 0.95 }}
-        className="absolute right-0 top-12 w-[320px] md:w-[420px] bg-[#0b0b0f] border border-outline shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-2xl z-50 overflow-hidden flex flex-col max-h-[85vh] origin-top-right"
+        className="absolute right-0 top-12 w-[320px] md:w-[420px] bg-elevated border border-outline shadow-2xl rounded-2xl z-50 overflow-hidden flex flex-col max-h-[85vh] origin-top-right"
       >
         {/* Header */}
         <div className="p-4 border-b border-outline/30 bg-surface-container-lowest/80 backdrop-blur-xl shrink-0">
@@ -178,7 +178,7 @@ export function NotificationsPopover({
         </div>
         
         {/* Body */}
-        <div className="overflow-y-auto custom-scrollbar flex-1 bg-[#0b0b0f]">
+        <div className="overflow-y-auto custom-scrollbar flex-1 bg-elevated">
           {loading ? (
              <div className="p-4 space-y-4">
                {[1, 2, 3].map(i => (
