@@ -31,7 +31,7 @@ export const googleWebhookController = {
       console.log(`[Webhook Calendar] Iniciando sincronização offline para usuário ${user.id}...`);
       
       // Roda em background
-      googleCalendarService.syncUserCalendar(user.id).catch(err => {
+      googleCalendarService.syncUserCalendar(user.id).catch((err: Error) => {
         console.error(`[Webhook Calendar] Erro no background job para user ${user.id}:`, err);
       });
 

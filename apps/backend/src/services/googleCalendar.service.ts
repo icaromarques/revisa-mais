@@ -110,7 +110,7 @@ export const googleCalendarService = {
   /**
    * Performs a two-way sync for a user
    */
-  async syncUserCalendar(userId: string) {
+  async syncUserCalendar(userId: string): Promise<void> {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user || !user.googleRefreshToken) return;
@@ -191,7 +191,7 @@ export const googleCalendarService = {
   /**
    * Processes a single incoming event from Google Calendar
    */
-  private async handleIncomingGoogleEvent(userId: string, item: calendar_v3.Schema$Event) {
+  async handleIncomingGoogleEvent(userId: string, item: calendar_v3.Schema$Event) {
     // If we created this event via Revisa+, skip re-importing to avoid loops
     if (item.summary?.startsWith('Revisa+ |')) return;
 
