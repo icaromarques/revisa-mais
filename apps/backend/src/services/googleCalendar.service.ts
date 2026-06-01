@@ -1,6 +1,13 @@
 import { google, calendar_v3 } from 'googleapis';
 import { prisma } from '../config/prisma';
 
+type CalendarSyncOptions = {
+  /** Incremental sync via syncToken. Disabled when timeMin/timeMax is set. */
+  incremental?: boolean;
+  timeMin?: Date;
+  timeMax?: Date;
+};
+
 export const googleCalendarService = {
   async getClient(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -194,16 +201,26 @@ export const googleCalendarService = {
     }
   },
 
-  async syncSingleCalendar(userId: string, googleCalendarId: string): Promise<void> {
+  async syncSingleCalendar(
+    userId: string,
+    googleCalendarId: string,
+    options: CalendarSyncOptions = {}
+  ): Promise<number> {
     const calRecord = await prisma.userGoogleCalendar.findUnique({
       where: {
         userId_googleCalendarId: { userId, googleCalendarId }
       }
     });
-    if (!calRecord) return;
+    if (!calRecord) return 0;
 
     const client = await this.getClient(userId);
     const calendar = google.calendar({ version: 'v3', auth: client });
+
+    const useIncremental =
+      options.incremental !== false &&
+      !options.timeMin &&
+      !options.timeMax &&
+      Boolean(calRecord.syncToken);
 
     const requestOptions: calendar_v3.Params$Resource$Events$List = {
       calendarId: googleCalendarId,
@@ -211,16 +228,20 @@ export const googleCalendarService = {
       singleEvents: true
     };
 
-    if (calRecord.syncToken) {
-      requestOptions.syncToken = calRecord.syncToken;
+    if (useIncremental) {
+      requestOptions.syncToken = calRecord.syncToken!;
+      requestOptions.showDeleted = true;
     } else {
-      const dateMin = new Date();
-      dateMin.setDate(dateMin.getDate() - 90);
+      const dateMin = options.timeMin ?? new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
       requestOptions.timeMin = dateMin.toISOString();
+      if (options.timeMax) {
+        requestOptions.timeMax = options.timeMax.toISOString();
+      }
     }
 
     let syncTokenToSave: string | null | undefined = null;
     let pageToken: string | undefined;
+    let imported = 0;
 
     do {
       if (pageToken) requestOptions.pageToken = pageToken;
@@ -231,6 +252,9 @@ export const googleCalendarService = {
 
         for (const item of items) {
           await this.handleIncomingGoogleEvent(userId, googleCalendarId, item);
+          if (item.status !== 'cancelled' && !item.summary?.startsWith('Revisa+ |')) {
+            imported += 1;
+          }
         }
 
         pageToken = response.data.nextPageToken || undefined;
@@ -243,7 +267,10 @@ export const googleCalendarService = {
             where: { id: calRecord.id },
             data: { syncToken: null }
           });
-          return this.syncSingleCalendar(userId, googleCalendarId);
+          return this.syncSingleCalendar(userId, googleCalendarId, {
+            ...options,
+            incremental: false
+          });
         }
         throw err;
       }
@@ -255,12 +282,18 @@ export const googleCalendarService = {
         data: { syncToken: syncTokenToSave }
       });
     }
+
+    console.log(
+      `[GCal Sync] user=${userId} calendar=${googleCalendarId} mode=${useIncremental ? 'incremental' : 'window'} imported=${imported}`
+    );
+
+    return imported;
   },
 
   /**
    * Syncs all calendars the user chose to display (selected = true).
    */
-  async syncUserCalendar(userId: string): Promise<void> {
+  async syncUserCalendar(userId: string, options: CalendarSyncOptions = {}): Promise<void> {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user || !user.googleRefreshToken) return;
@@ -296,8 +329,15 @@ export const googleCalendarService = {
       }
 
       for (const cal of calendars) {
-        await this.syncSingleCalendar(userId, cal.googleCalendarId);
-        await this.registerWatchChannel(userId, cal.googleCalendarId);
+        try {
+          await this.syncSingleCalendar(userId, cal.googleCalendarId, options);
+          await this.registerWatchChannel(userId, cal.googleCalendarId);
+        } catch (calError) {
+          console.error(
+            `Sync failed for calendar ${cal.googleCalendarId} (user ${userId}):`,
+            calError
+          );
+        }
       }
 
       await prisma.user.update({
@@ -331,8 +371,7 @@ export const googleCalendarService = {
       await prisma.eventoAcademico.deleteMany({
         where: {
           userId,
-          googleEventId: item.id as string,
-          googleCalendarId
+          googleEventId: item.id as string
         }
       });
       return;
@@ -354,8 +393,7 @@ export const googleCalendarService = {
     const existing = await prisma.eventoAcademico.findFirst({
       where: {
         userId,
-        googleEventId: item.id as string,
-        googleCalendarId
+        googleEventId: item.id as string
       }
     });
 

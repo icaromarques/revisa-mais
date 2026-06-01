@@ -28,7 +28,7 @@ export const googleWebhookController = {
       }
 
       googleCalendarService
-        .syncSingleCalendar(cal.userId, cal.googleCalendarId)
+        .syncSingleCalendar(cal.userId, cal.googleCalendarId, { incremental: true })
         .catch((err: Error) => {
           console.error(`[Webhook Calendar] Sync error for user ${cal.userId}:`, err);
         });

@@ -139,14 +139,23 @@ export const eventoController = {
   async syncRange(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
+      const body = req.body ?? {};
+      const timeMinRaw = body.timeMin ?? body.time_min;
+      const timeMaxRaw = body.timeMax ?? body.time_max;
+
+      const syncOptions = {
+        incremental: false as const,
+        timeMin: timeMinRaw ? new Date(timeMinRaw) : undefined,
+        timeMax: timeMaxRaw ? new Date(timeMaxRaw) : undefined
+      };
 
       const { googleCalendarService } = await import('../services/googleCalendar.service');
-      
-      // Executa em background para não dar timeout na requisição HTTP
+
+      // Window sync in background; uses visible range from the client when provided
       googleCalendarService
-        .syncUserCalendar(userId)
+        .syncUserCalendar(userId, syncOptions)
         .catch((err) => console.error(`Background sync error for user ${userId}:`, err));
-      
+
       res.json({ success: true, message: 'Sincronização iniciada em segundo plano' });
     } catch (error) {
       console.error('Erro ao sincronizar range:', error);

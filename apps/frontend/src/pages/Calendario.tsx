@@ -135,7 +135,7 @@ export function Calendario() {
                  });
                  lastSyncTime.current = Date.now();
                  // sync-range runs in background; refresh UI after a short delay
-                 await new Promise((r) => setTimeout(r, 2500));
+                 await new Promise((r) => setTimeout(r, 3500));
                  if (isMounted) setReloadToken((t) => t + 1);
              }
          } catch { /* ignore */ }
@@ -180,7 +180,7 @@ export function Calendario() {
          }
          const { timeMin, timeMax } = getCalendarVisibleRange(activeView, currentDate);
          await calendarService.syncGoogleRange(user.id, timeMin, timeMax);
-         await new Promise((r) => setTimeout(r, 2500));
+         await new Promise((r) => setTimeout(r, 3500));
          await loadGoogleCalendars();
          setReloadToken((t) => t + 1);
          toast.success('Agenda sincronizada com Google Calendar!');
