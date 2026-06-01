@@ -10,18 +10,19 @@ import { apiClient } from '@/lib/api';
 import { useRestWindow } from '@/hooks/useRestWindow';
 import { parseValidDate } from '@/lib/utils';
 import { toast } from 'sonner';
-import { getStableRenderKey } from '@/lib/calendar-utils';
+import { buildLocalDateTimeIso, getStableRenderKey } from '@/lib/calendar-utils';
 
 interface CalendarEventModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSaved?: () => void;
   eventToEdit?: EventoAcademico | null;
   initialData?: Partial<EventoAcademico>;
   materias?: any[];
   topicos?: any[];
 }
 
-export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }: CalendarEventModalProps) {
+export function CalendarEventModal({ isOpen, onClose, onSaved, eventToEdit, initialData }: CalendarEventModalProps) {
   const { user } = useAuth();
   const { requestConfirm } = useConfirm();
   const { isInRestWindow } = useRestWindow();
@@ -186,8 +187,12 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
     
     setIsSaving(true);
     
-    const startIso = diaInteiro ? `${dataInicio}T00:00:00` : `${dataInicio}T${horaInicio}:00`;
-    const endIso = diaInteiro ? `${dataFim}T23:59:59` : `${dataFim}T${horaFim}:00`;
+    const startIso = diaInteiro
+      ? buildLocalDateTimeIso(dataInicio, '00:00')
+      : buildLocalDateTimeIso(dataInicio, horaInicio);
+    const endIso = diaInteiro
+      ? buildLocalDateTimeIso(dataFim, '23:59')
+      : buildLocalDateTimeIso(dataFim, horaFim);
 
     const proceedSave = async () => {
       try {
@@ -235,6 +240,7 @@ export function CalendarEventModal({ isOpen, onClose, eventToEdit, initialData }
           }
         }
         
+        onSaved?.();
         onClose();
       } catch (error) {
         console.error("Error saving event", error);

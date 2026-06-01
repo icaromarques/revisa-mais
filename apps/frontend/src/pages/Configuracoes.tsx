@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
 import { googleCalendarService, GCalDiagnosticResult } from '@/services/googleCalendar';
+import { GoogleCalendarsList } from '@/components/calendar/GoogleCalendarsList';
+import { UserGoogleCalendar } from '@/types/googleCalendar';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useStudyTimer } from '@/contexts/StudyTimerContext';
@@ -22,6 +24,8 @@ function GoogleCalendarSettings() {
   const { user } = useAuth();
   const [userData, setUserData] = useState<any>(null);
   const [prefs, setPrefs] = useState<any>({});
+  const [googleCalendars, setGoogleCalendars] = useState<UserGoogleCalendar[]>([]);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -48,6 +52,19 @@ function GoogleCalendarSettings() {
       setLoading(false);
     });
   }, [user, userData]);
+
+  useEffect(() => {
+    if (!user || !isConnected) {
+      setGoogleCalendars([]);
+      return;
+    }
+    setLoadingCalendars(true);
+    googleCalendarService
+      .fetchCalendars()
+      .then(setGoogleCalendars)
+      .catch(() => setGoogleCalendars([]))
+      .finally(() => setLoadingCalendars(false));
+  }, [user, isConnected, userData?.gcal_last_sync]);
 
   const [diagnosticResult, setDiagnosticResult] = useState<GCalDiagnosticResult | null>(null);
 
@@ -232,6 +249,42 @@ function GoogleCalendarSettings() {
           animate={{ opacity: 1, y: 0 }}
           className="p-5 bg-surface-container-lowest rounded-2xl border border-outline/20 space-y-4"
         >
+          <GoogleCalendarsList
+            calendars={googleCalendars}
+            loading={loadingCalendars}
+            onToggle={async (googleCalendarId, selected) => {
+              const prev = googleCalendars;
+              setGoogleCalendars((list) =>
+                list.map((c) =>
+                  c.google_calendar_id === googleCalendarId ? { ...c, selected } : c
+                )
+              );
+              try {
+                await googleCalendarService.setCalendarSelected(googleCalendarId, selected);
+                if (selected && user) {
+                  const { calendarService } = await import('@/services/calendarService');
+                  const timeMin = new Date();
+                  timeMin.setDate(1);
+                  const timeMax = new Date();
+                  timeMax.setMonth(timeMax.getMonth() + 2);
+                  await calendarService.syncGoogleRange(user.id, timeMin, timeMax);
+                }
+              } catch {
+                setGoogleCalendars(prev);
+                toast.error('Erro ao atualizar agenda.');
+              }
+            }}
+            onRefresh={async () => {
+              try {
+                const data = await googleCalendarService.refreshCalendars();
+                setGoogleCalendars(data);
+                toast.success('Agendas atualizadas do Google.');
+              } catch {
+                toast.error('Erro ao buscar agendas.');
+              }
+            }}
+          />
+
           <label className="flex items-center gap-4 cursor-pointer group">
             <div className="relative flex items-center">
               <input 

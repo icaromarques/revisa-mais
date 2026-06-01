@@ -56,7 +56,24 @@ export const googleCalendarService = {
     return { ok: false, message: 'Conecte via OAuth no backend.' };
   },
 
-  disconnect: async (userId: string) => {
+  disconnect: async (_userId: string) => {
       await apiClient.delete('/integrations/google/disconnect');
+  },
+
+  fetchCalendars: async () => {
+    const { data } = await apiClient.get('/integrations/google/calendars');
+    return data;
+  },
+
+  refreshCalendars: async () => {
+    const { data } = await apiClient.post('/integrations/google/calendars/refresh');
+    return data;
+  },
+
+  setCalendarSelected: async (googleCalendarId: string, selected: boolean) => {
+    await apiClient.patch('/integrations/google/calendars/selection', {
+      google_calendar_id: googleCalendarId,
+      selected
+    });
   }
 };

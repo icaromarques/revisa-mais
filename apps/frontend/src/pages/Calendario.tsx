@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from '@/components/Header';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, BookOpen, Clock, AlertCircle, RotateCw, Filter } from 'lucide-react';
-import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks, addYears, subYears, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from 'date-fns';
+import { format, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks, addYears, subYears, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { calendarService } from '@/services/calendarService';
@@ -13,13 +13,84 @@ import { toast } from 'sonner';
 
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
 
-import { getVisibleCalendarEvents, getCalendarRenderKey, resolveCalendarColor, getCalendarVisibleRange } from '@/lib/calendar-utils';
+import {
+  getVisibleCalendarEvents,
+  filterEventsByGoogleCalendarSelection,
+  getCalendarRenderKey,
+  resolveCalendarColor,
+  getCalendarVisibleRange,
+  formatEventTime,
+  parseEventLocalDate
+} from '@/lib/calendar-utils';
+import { GoogleCalendarsList } from '@/components/calendar/GoogleCalendarsList';
+import {
+  CalendarAgendaView,
+  CalendarDayView,
+  CalendarWeekView,
+  CalendarYearView
+} from '@/components/calendar/CalendarAlternateViews';
+import { UserGoogleCalendar } from '@/types/googleCalendar';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 
 export function Calendario() {
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [events, setEvents] = useState<EventoAcademico[]>([]);
+  const [reloadToken, setReloadToken] = useState(0);
+  type CalendarView = 'day' | 'week' | 'month' | 'year' | 'agenda';
+  const [activeView, setActiveView] = useState<CalendarView>('month');
+  const { events, loading: loadingEvents } = useCalendarEvents(user?.id, currentDate, reloadToken);
   const visibleEvents = React.useMemo(() => getVisibleCalendarEvents(events), [events]);
+  const [googleCalendars, setGoogleCalendars] = useState<UserGoogleCalendar[]>([]);
+  const [loadingGoogleCals, setLoadingGoogleCals] = useState(false);
+
+  const displayEvents = React.useMemo(
+    () => filterEventsByGoogleCalendarSelection(visibleEvents, googleCalendars),
+    [visibleEvents, googleCalendars]
+  );
+
+  const loadGoogleCalendars = React.useCallback(async () => {
+    if (!user) return;
+    try {
+      const { googleCalendarService } = await import('@/services/googleCalendar');
+      const connected = await googleCalendarService.isConnected(user.id);
+      if (!connected) {
+        setGoogleCalendars([]);
+        return;
+      }
+      setLoadingGoogleCals(true);
+      const data = await googleCalendarService.fetchCalendars();
+      setGoogleCalendars(data);
+    } catch {
+      setGoogleCalendars([]);
+    } finally {
+      setLoadingGoogleCals(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadGoogleCalendars();
+  }, [loadGoogleCalendars]);
+
+  const handleToggleGoogleCalendar = async (googleCalendarId: string, selected: boolean) => {
+    const previous = googleCalendars;
+    setGoogleCalendars((list) =>
+      list.map((c) =>
+        c.google_calendar_id === googleCalendarId ? { ...c, selected } : c
+      )
+    );
+    try {
+      const { googleCalendarService } = await import('@/services/googleCalendar');
+      await googleCalendarService.setCalendarSelected(googleCalendarId, selected);
+      if (selected && user) {
+        const { timeMin, timeMax } = getCalendarVisibleRange(activeView, currentDate);
+        await calendarService.syncGoogleRange(user.id, timeMin, timeMax);
+        setReloadToken((t) => t + 1);
+      }
+    } catch {
+      setGoogleCalendars(previous);
+      toast.error('Não foi possível atualizar a agenda.');
+    }
+  };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailEvent, setDetailEvent] = useState<EventoAcademico | null>(null);
@@ -35,10 +106,6 @@ export function Calendario() {
 
   const [isSyncing, setIsSyncing] = useState(false);
   const isSyncingRef = useRef(false);
-
-  // Premium Views Architecture
-  type CalendarView = 'day' | 'week' | 'month' | 'year' | 'agenda';
-  const [activeView, setActiveView] = useState<CalendarView>('month');
 
   // Auto-sync Google Calendar periodically and on focus
   const lastSyncTime = useRef<number>(0);
@@ -93,7 +160,7 @@ export function Calendario() {
          window.removeEventListener('focus', onFocus);
          clearInterval(interval);
      };
-  }, [user, currentDate]);
+  }, [user, currentDate, activeView]);
 
   const handleManualSync = async () => {
      if (!user || isSyncingRef.current) return;
@@ -110,7 +177,9 @@ export function Calendario() {
          }
          const { timeMin, timeMax } = getCalendarVisibleRange(activeView, currentDate);
          await calendarService.syncGoogleRange(user.id, timeMin, timeMax);
-         toast.success("Agenda sincronizada com Google Calendar!");
+         await loadGoogleCalendars();
+         setReloadToken((t) => t + 1);
+         toast.success('Agenda sincronizada com Google Calendar!');
      } catch (e: any) {
          toast.error(e.message?.includes('expirou') ? "Sua conexão expirou. Reconecte nas configurações." : "Erro ao sincronizar GCal");
      } finally {
@@ -118,131 +187,6 @@ export function Calendario() {
          isSyncingRef.current = false;
      }
   };
-
-  useEffect(() => {
-    if (!user) return;
-    calendarService.fetchUserEvents(user.id).then(async (data: any[]) => {
-      
-      const validData = data.filter(e => e.data_inicio && !isNaN(new Date(e.data_inicio).getTime()));
-      
-      // --- Add Grade and Bloqueios ---
-      const timeMin = startOfWeek(startOfMonth(currentDate));
-      const timeMax = endOfWeek(endOfMonth(currentDate));
-      
-      const { availabilityService } = await import('@/services/availabilityService');
-      const { isSameDay } = await import('date-fns');
-      const gradeDocs = await availabilityService.getGradeFaculdade(user.id);
-      const blockDocs = await availabilityService.getBloqueios(user.id);
-      
-      const isDateWithinValidity = (item: any, d: Date) => {
-         const startV = item.data_inicio_vigencia || item.periodo_inicio;
-         const endV = item.data_fim_vigencia || item.periodo_fim;
-         
-         if (startV) {
-             const startD = new Date(startV);
-             // handle local timezone offset from YYYY-MM-DD
-             const locStart = new Date(startD.getTime() + startD.getTimezoneOffset() * 60000);
-             locStart.setHours(0,0,0,0);
-             if (d < locStart) return false;
-         }
-         if (endV) {
-             const endD = new Date(endV);
-             const locEnd = new Date(endD.getTime() + endD.getTimezoneOffset() * 60000);
-             locEnd.setHours(23,59,59,999);
-             if (d > locEnd) return false;
-         }
-         return true;
-      };
-
-      let dateIter = new Date(timeMin);
-      const synthesizedEvents: any[] = [];
-
-      while(dateIter <= timeMax) {
-        const day = dateIter.getDay(); // 0-6
-        const iterDayMidnight = new Date(dateIter);
-        iterDayMidnight.setHours(0,0,0,0);
-        
-        // Grade
-        gradeDocs.filter(g => g.ativo).forEach(g => {
-           if (!isDateWithinValidity(g, iterDayMidnight)) return;
-
-           const hasDay = g.recorrente !== false && (g.dias_semana ? g.dias_semana.includes(day) : g.dia_semana === day);
-           let shouldShow = hasDay;
-           
-           if (!shouldShow && g.recorrente === false && g.data_especifica) {
-             const bd = new Date(g.data_especifica);
-             const bdLocal = new Date(bd.getTime() + bd.getTimezoneOffset() * 60000);
-             bdLocal.setHours(0,0,0,0);
-             if (isSameDay(bdLocal, iterDayMidnight)) {
-               shouldShow = true;
-             }
-           }
-
-           if (shouldShow) {
-             const startD = new Date(dateIter);
-             const [sh, sm] = g.hora_inicio.split(':').map(Number);
-             startD.setHours(sh, sm, 0, 0);
-             
-             const endD = new Date(dateIter);
-             const [eh, em] = g.hora_fim ? g.hora_fim.split(':').map(Number) : [sh + 1, sm];
-             endD.setHours(eh, em, 0, 0);
-
-             synthesizedEvents.push({
-                id: 'grade_'+g.id+'_'+startD.getTime(),
-                user_id: user.id,
-                titulo: g.titulo,
-                descricao: '',
-                tipo: 'aula',
-                origem: 'grade',
-                cor: g.cor || '#4F46E5',
-                data_inicio: startD.toISOString(),
-                data_fim: endD.toISOString(),
-                dia_inteiro: false,
-                local: g.local || '',
-                concluido: false,
-                sync_status: 'local' as const
-             });
-           }
-        });
-
-        // Bloqueios
-        blockDocs.filter(b => b.ativo).forEach(b => {
-           if (!isDateWithinValidity(b, iterDayMidnight)) return;
-
-           const hasDay = b.recorrente && (b.dias_semana ? b.dias_semana.includes(day) : b.dia_semana === day);
-           if (hasDay || (!b.recorrente && b.data_especifica && isSameDay(new Date(b.data_especifica + 'T00:00:00'), iterDayMidnight))) {
-              const startD = new Date(dateIter);
-              const [sh, sm] = b.hora_inicio.split(':').map(Number);
-              startD.setHours(sh, sm, 0, 0);
-              
-              const endD = new Date(dateIter);
-              const [eh, em] = b.hora_fim ? b.hora_fim.split(':').map(Number) : [sh + 1, sm];
-              endD.setHours(eh, em, 0, 0);
-
-              synthesizedEvents.push({
-                 id: 'block_'+b.id+'_'+startD.getTime(),
-                 user_id: user.id,
-                 titulo: b.titulo,
-                 descricao: '',
-                 tipo: 'bloqueio',
-                 origem: 'sistema',
-                 cor: b.cor || '#6B7280',
-                 data_inicio: startD.toISOString(),
-                 data_fim: endD.toISOString(),
-                 dia_inteiro: false,
-                 local: '',
-                 concluido: false,
-                 sync_status: 'local' as const
-              });
-           }
-        });
-
-        dateIter.setDate(dateIter.getDate() + 1);
-      }
-      
-      setEvents([...validData, ...synthesizedEvents]);
-    });
-  }, [user, currentDate]);
 
   const goNext = () => {
     switch (activeView) {
@@ -272,9 +216,44 @@ export function Calendario() {
   
   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
-  const eventsForDay = (day: Date) => {
-    return visibleEvents.filter(e => isSameDay(new Date(e.data_inicio), day));
-  };
+  const eventsByDayKey = React.useMemo(() => {
+    const map = new Map<string, EventoAcademico[]>();
+    for (const e of displayEvents) {
+      const key = format(parseEventLocalDate(e.data_inicio), 'yyyy-MM-dd');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return map;
+  }, [displayEvents]);
+
+  const eventsForDay = (day: Date) =>
+    eventsByDayKey.get(format(day, 'yyyy-MM-dd')) ?? [];
+
+  const sidebarEvents = React.useMemo(() => {
+    return displayEvents
+      .filter((e) => {
+        if (e.tipo === 'bloqueio' || e.concluido) return false;
+        const targetDate = new Date(e.data_inicio);
+        targetDate.setHours(23, 59, 59, 999);
+        if (targetDate < new Date()) return false;
+
+        if (sidebarFilter === 'hoje') return isToday(targetDate);
+        if (sidebarFilter === '7dias') {
+          const sevenDaysLater = new Date();
+          sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+          return targetDate <= sevenDaysLater;
+        }
+        if (sidebarFilter === 'avaliacoes') return ['prova', 'trabalho', 'apresentacao'].includes(e.tipo);
+        if (sidebarFilter === 'google')
+          return e.origem === 'google_external' || e.sync_status === 'sincronizado';
+        if (sidebarFilter === 'revisa') return e.origem !== 'google_external';
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime()
+      );
+  }, [displayEvents, sidebarFilter]);
 
   const handleDayClick = (day: Date) => {
     setSelectedDay(day);
@@ -322,11 +301,11 @@ export function Calendario() {
     <>
       <Header title="Calendário" subtitle="Visão geral dos seus compromissos e prazos." />
 
-      <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-6">
+      <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex flex-col lg:flex-row lg:items-start gap-6">
         
         {/* Main Calendar Area */}
         <SectionErrorBoundary title="Visualização do Calendário" name="CalendarGrid">
-          <div className="flex-1 glass-panel rounded-3xl p-6 flex flex-col">
+          <div className="flex-1 min-w-0 glass-panel rounded-3xl p-6 flex flex-col self-start w-full">
             
             {/* Calendar Header Controls */}
             <div className="flex flex-col mb-4 gap-4">
@@ -382,7 +361,7 @@ export function Calendario() {
             </div>
 
             {activeView === 'month' && (
-              <div className="flex-1 border border-outline/10 rounded-2xl overflow-hidden flex flex-col">
+              <div className="border border-outline/10 rounded-2xl overflow-hidden">
                 {/* Weekdays */}
                 <div className="grid grid-cols-7 bg-surface-container border-b border-outline/10">
                   {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day, idx) => (
@@ -393,7 +372,7 @@ export function Calendario() {
                 </div>
 
                 {/* Days */}
-                <div className="grid grid-cols-7 flex-1 auto-rows-fr">
+                <div className="grid grid-cols-7 grid-rows-6">
                   {calendarDays.map((day, idx) => {
                     const dayEvents = eventsForDay(day);
 
@@ -432,7 +411,7 @@ export function Calendario() {
                                    {event.sync_status === 'externo' && <div className="w-1.5 h-1.5 rounded-full bg-blue-300 opacity-80"></div>}
                                    {(event.sync_status === 'erro' || event.sync_status === 'precisa_reconectar') && <div className="w-1.5 h-1.5 rounded-full bg-red-500 opacity-80"></div>}
                                 </div>
-                                {format(new Date(event.data_inicio), 'HH:mm')} - {event.titulo}
+                                {formatEventTime(event.data_inicio)} - {event.titulo}
                               </div>
                             );
                           })}
@@ -450,40 +429,84 @@ export function Calendario() {
             )}
 
             {activeView === 'day' && (
-              <div className="flex-1 flex flex-col items-center justify-center border border-outline/10 text-on-surface-variant font-medium rounded-2xl bg-surface-container-lowest py-20">
-                 Trabalhando na Visão Dia
-              </div>
+              <CalendarDayView
+                currentDate={currentDate}
+                events={displayEvents}
+                onDayClick={handleDayClick}
+                onEventClick={handleEventClick}
+                getTypeStyle={getTypeStyle}
+              />
             )}
 
             {activeView === 'week' && (
-               <div className="flex-1 flex flex-col items-center justify-center border border-outline/10 text-on-surface-variant font-medium rounded-2xl bg-surface-container-lowest py-20">
-                  Trabalhando na Visão Semana
-               </div>
+              <CalendarWeekView
+                currentDate={currentDate}
+                events={displayEvents}
+                onDayClick={handleDayClick}
+                onEventClick={handleEventClick}
+                getTypeStyle={getTypeStyle}
+              />
             )}
 
             {activeView === 'year' && (
-               <div className="flex-1 flex flex-col items-center justify-center border border-outline/10 text-on-surface-variant font-medium rounded-2xl bg-surface-container-lowest py-20">
-                  Trabalhando na Visão Ano
-               </div>
+              <CalendarYearView
+                currentDate={currentDate}
+                events={displayEvents}
+                onDayClick={(day) => {
+                  setCurrentDate(day);
+                  setActiveView('month');
+                }}
+                onEventClick={handleEventClick}
+                getTypeStyle={getTypeStyle}
+              />
             )}
 
             {activeView === 'agenda' && (
-               <div className="flex-1 flex flex-col items-center justify-center border border-outline/10 text-on-surface-variant font-medium rounded-2xl bg-surface-container-lowest py-20">
-                  Trabalhando na Visão Agenda
-               </div>
+              <CalendarAgendaView
+                currentDate={currentDate}
+                events={displayEvents}
+                onDayClick={handleDayClick}
+                onEventClick={handleEventClick}
+                getTypeStyle={getTypeStyle}
+              />
+            )}
+
+            {loadingEvents && activeView === 'month' && (
+              <p className="text-xs text-on-surface-variant mt-2">Atualizando eventos...</p>
             )}
           </div>
         </SectionErrorBoundary>
 
         {/* Sidebar */}
         <SectionErrorBoundary title="Próximos Compromissos" name="CalendarSidebar">
-          <div className="w-full lg:w-80 space-y-6">
+          <div className="w-full lg:w-80 lg:flex-shrink-0 lg:sticky lg:top-24 self-start">
             
-            <div className="glass-panel rounded-3xl p-6 h-full flex flex-col">
+            <div className="glass-panel rounded-3xl p-6 flex flex-col max-h-[calc(100vh-7rem)] overflow-hidden">
               <h3 className="font-bold mb-4 flex items-center gap-2 text-primary">
                 <Filter className="w-5 h-5" />
                 Sua Agenda
               </h3>
+
+              {googleCalendars.length > 0 && (
+                <div className="mb-5 pb-5 border-b border-outline/10">
+                  <GoogleCalendarsList
+                    calendars={googleCalendars}
+                    loading={loadingGoogleCals}
+                    compact
+                    onToggle={handleToggleGoogleCalendar}
+                    onRefresh={async () => {
+                      try {
+                        const { googleCalendarService } = await import('@/services/googleCalendar');
+                        const data = await googleCalendarService.refreshCalendars();
+                        setGoogleCalendars(data);
+                        toast.success('Lista de agendas atualizada.');
+                      } catch {
+                        toast.error('Erro ao atualizar agendas.');
+                      }
+                    }}
+                  />
+                </div>
+              )}
               
               <div className="flex flex-wrap gap-2 mb-6 text-xs">
                  <button onClick={() => setSidebarFilter('hoje')} className={`px-3 py-1.5 rounded-full font-semibold transition-colors ${sidebarFilter === 'hoje' ? 'bg-primary text-on-primary' : 'bg-surface-container hover:bg-surface-variant'}`}>Hoje</button>
@@ -493,28 +516,8 @@ export function Calendario() {
                  <button onClick={() => setSidebarFilter('revisa')} className={`px-3 py-1.5 rounded-full font-semibold transition-colors ${sidebarFilter === 'revisa' ? 'bg-primary text-on-primary' : 'bg-surface-container hover:bg-surface-variant'}`}>Revisa+</button>
               </div>
 
-              <div className="space-y-3 overflow-y-auto flex-1 custom-scrollbar pr-2 pb-4">
-                {(() => {
-                  const filteredEvents = visibleEvents.filter(e => {
-                     if (e.tipo === 'bloqueio' || e.concluido) return false;
-                     const targetDate = new Date(e.data_inicio);
-                     targetDate.setHours(23,59,59,999);
-                     if (targetDate < new Date()) return false;
-
-                     if (sidebarFilter === 'hoje') return isToday(targetDate);
-                     if (sidebarFilter === '7dias') {
-                        const sevenDaysLater = new Date();
-                        sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-                        return targetDate <= sevenDaysLater;
-                     }
-                     if (sidebarFilter === 'avaliacoes') return ['prova', 'trabalho', 'apresentacao'].includes(e.tipo);
-                     if (sidebarFilter === 'google') return e.origem === 'google_external' || e.sync_status === 'sincronizado';
-                     if (sidebarFilter === 'revisa') return e.origem !== 'google_external';
-                     return true;
-                  }).sort((a, b) => new Date(a.data_inicio).getTime() - new Date(b.data_inicio).getTime());
-
-                  if (filteredEvents.length === 0) {
-                     return (
+              <div className="space-y-3 overflow-y-auto flex-1 min-h-0 custom-scrollbar pr-2 pb-4">
+                {sidebarEvents.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-10 opacity-60 text-center">
                            <AlertCircle className="w-8 h-8 mb-3" />
                            <p className="text-sm">
@@ -525,10 +528,8 @@ export function Calendario() {
                               'Nenhum evento encontrado.'}
                            </p>
                         </div>
-                     );
-                  }
-
-                  return filteredEvents.slice(0, 15).map((event, idx) => (
+                ) : (
+                  sidebarEvents.map((event, idx) => (
                     <div key={getCalendarRenderKey(event, 'sidebar', idx)} onClick={(e) => handleEventClick(e, event)} className="p-3 bg-surface-container-highest rounded-xl cursor-pointer hover:bg-surface-variant transition-colors group border border-outline/10 flex gap-3 relative overflow-hidden">
                       <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: resolveCalendarColor(event.cor) }}></div>
                       <div className="flex-1 min-w-0">
@@ -542,7 +543,7 @@ export function Calendario() {
                           <div className="flex flex-col gap-1 text-xs text-on-surface-variant font-medium">
                             <div className="flex items-center gap-1.5">
                               <CalendarIcon className="w-3 h-3 flex-shrink-0" />
-                              {format(new Date(event.data_inicio), "dd MMM, HH:mm", { locale: ptBR })}
+                              {format(new Date(event.data_inicio), 'dd MMM', { locale: ptBR })}, {formatEventTime(event.data_inicio)}
                             </div>
                             {event.materia_nome && (
                                 <div className="flex items-center gap-1.5 text-primary opacity-80">
@@ -553,8 +554,8 @@ export function Calendario() {
                           </div>
                       </div>
                     </div>
-                  ));
-                })()}
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -565,6 +566,7 @@ export function Calendario() {
       <CalendarEventModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onSaved={() => setReloadToken((t) => t + 1)}
         eventToEdit={selectedEvent}
         initialData={modalInitialData}
       />

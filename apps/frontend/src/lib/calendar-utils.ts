@@ -1,4 +1,47 @@
 import { EventoAcademico } from '@/types/calendar';
+import { UserGoogleCalendar } from '@/types/googleCalendar';
+import { format, isSameDay } from 'date-fns';
+
+/** Parses API ISO strings into a Date for display in the user's local timezone. */
+export function parseEventLocalDate(iso: string | Date): Date {
+  if (iso instanceof Date) return iso;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
+export function isEventOnDay(event: EventoAcademico, day: Date): boolean {
+  return isSameDay(parseEventLocalDate(event.data_inicio), day);
+}
+
+/** Builds UTC ISO from local date + time inputs (fixes server UTC mis-parse). */
+export function buildLocalDateTimeIso(dateStr: string, timeStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [hh, mm] = (timeStr || '00:00').split(':').map(Number);
+  return new Date(y, m - 1, d, hh, mm ?? 0, 0, 0).toISOString();
+}
+
+export function formatEventTime(iso: string, pattern = 'HH:mm'): string {
+  return format(parseEventLocalDate(iso), pattern);
+}
+
+export function filterEventsByGoogleCalendarSelection(
+  events: EventoAcademico[],
+  googleCalendars: UserGoogleCalendar[]
+): EventoAcademico[] {
+  if (googleCalendars.length === 0) return events;
+
+  const hiddenIds = new Set(
+    googleCalendars.filter((c) => !c.selected).map((c) => c.google_calendar_id)
+  );
+
+  if (hiddenIds.size === 0) return events;
+
+  return events.filter((e) => {
+    if (e.origem !== 'google_external' && !e.google_calendar_id) return true;
+    if (!e.google_calendar_id) return true;
+    return !hiddenIds.has(e.google_calendar_id);
+  });
+}
 
 export function getVisibleCalendarEvents(events: EventoAcademico[]): EventoAcademico[] {
   // 1. Remove logically deleted events
