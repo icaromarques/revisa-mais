@@ -137,12 +137,15 @@ export const eventoController = {
   async syncRange(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-      const { timeMin, timeMax } = req.body;
 
       const { googleCalendarService } = await import('../services/googleCalendar.service');
-      await googleCalendarService.syncUserCalendar(userId);
       
-      res.json({ success: true, message: 'Sincronização iniciada' });
+      // Executa em background para não dar timeout na requisição HTTP
+      googleCalendarService.syncUserCalendar(userId)
+        .then(() => googleCalendarService.registerWatchChannel(userId))
+        .catch(err => console.error(`Background sync error for user ${userId}:`, err));
+      
+      res.json({ success: true, message: 'Sincronização iniciada em segundo plano' });
     } catch (error) {
       console.error('Erro ao sincronizar range:', error);
       res.status(500).json({ error: 'Erro ao sincronizar com Google Calendar' });

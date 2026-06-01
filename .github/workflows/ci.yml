@@ -1,0 +1,44 @@
+name: CI (Lint & Build)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Backend - Lint & Generate Prisma
+        run: |
+          cd apps/backend
+          npx prisma generate
+          npm run lint
+
+      - name: Frontend - Lint
+        run: |
+          cd apps/frontend
+          npm run lint
+
+      - name: Backend - Build Test
+        run: |
+          cd apps/backend
+          npm run build
+
+      - name: Frontend - Build Test
+        run: |
+          cd apps/frontend
+          npm run build
