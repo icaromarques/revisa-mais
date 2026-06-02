@@ -44,8 +44,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       
       {dialog?.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
-          <div className="w-full max-w-sm glass-panel rounded-3xl shadow-2xl p-8 border border-outline/10 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-background/80 backdrop-blur-sm">
+          <div className="w-full max-w-sm mx-4 bg-surface rounded-3xl shadow-2xl p-8 border border-outline/10 animate-in zoom-in-95 duration-200">
             <h3 className="text-xl font-black text-on-surface text-center mb-3 tracking-tight">{dialog.title}</h3>
             <div className="text-sm text-on-surface-variant text-center mb-6 leading-relaxed">
               {dialog.message}
