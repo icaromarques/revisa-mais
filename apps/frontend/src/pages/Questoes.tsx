@@ -188,8 +188,8 @@ export function Questoes() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-surface rounded-2xl shadow-2xl flex flex-col border border-outline/20">
+        <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 bg-background/90 backdrop-blur-sm">
+          <div className="w-full max-w-lg mx-4 bg-surface rounded-2xl shadow-2xl flex flex-col border border-outline/20">
             <div className="p-4 border-b border-outline/10 flex justify-between items-center shrink-0">
               <h2 className="font-bold text-lg">{editingCaderno ? 'Editar Caderno' : 'Novo Caderno'}</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-on-surface-variant hover:text-on-surface p-1">

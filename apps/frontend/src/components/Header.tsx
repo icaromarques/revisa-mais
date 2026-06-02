@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Timer, Bell, Search, User as UserIcon, Settings, LogOut, ChevronDown, Play, Pause, SkipForward, Maximize2 } from 'lucide-react';
+import { Timer, Bell, Search, User as UserIcon, Settings, LogOut, ChevronDown, Play, Pause, SkipForward, Maximize2, Menu } from 'lucide-react';
 import { ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStudyTimer } from '@/contexts/StudyTimerContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationsPopover } from '@/components/NotificationsPopover';
@@ -34,6 +35,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
   } = useStudyTimer();
 
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead, removeNotification } = useNotifications();
+  const { toggleSidebar } = useSidebar();
 
   const handleMainTimerClick = () => {
     if (!sessionActive) {
@@ -97,14 +99,21 @@ export function Header({ title, subtitle, children }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-[45] isolate pointer-events-auto h-[70px] px-8 border-b border-outline backdrop-blur-[15px] bg-background/80 flex justify-between items-center transition-all">
-      <div className="flex items-center gap-8 flex-1">
-        <div className="hidden lg:block min-w-[200px] max-w-[400px]">
+    <header className="sticky top-0 z-[45] isolate pointer-events-auto h-[70px] px-4 lg:px-8 border-b border-outline backdrop-blur-[15px] bg-background flex justify-between items-center transition-all">
+      <div className="flex items-center gap-3 lg:gap-8 flex-1">
+        <button 
+          onClick={toggleSidebar}
+          className="p-2 -ml-2 rounded-lg text-on-surface hover:bg-hover-overlay lg:hidden transition-colors"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+        
+          <div className="hidden lg:block min-w-[200px] max-w-[400px]">
           <h2 className="text-xl font-bold text-on-surface tracking-tight line-clamp-2 leading-tight mb-1" title={title}>{title}</h2>
           {subtitle && <p className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider truncate" title={subtitle}>{subtitle}</p>}
         </div>
         
-        <div className="relative max-w-md w-full group">
+        <div className="hidden md:block relative max-w-md w-full group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant group-focus-within:text-primary transition-colors" />
           <input 
             type="text" 
@@ -115,41 +124,50 @@ export function Header({ title, subtitle, children }: HeaderProps) {
         {children}
       </div>
       
-      <div className="flex items-center gap-5">
+      {/* Mobile Timer Action */}
+      <button 
+        onClick={handleMainTimerClick}
+        className="md:hidden flex items-center justify-center p-2 rounded-full border border-outline hover:bg-surface-container-low transition-colors text-primary"
+      >
+        <Timer className="w-5 h-5" />
+      </button>
+
+      <div className="flex items-center justify-end gap-3 flex-1 w-full lg:w-auto">
         {/* Pomodoro Timer Premium */}
-        <div className={`flex items-center gap-4 p-2 pl-5 pr-3 rounded-2xl border-2 transition-all duration-300 min-w-[240px] ${getModeColor()}`}>
+        <div className={`hidden md:flex items-center gap-2 md:gap-4 p-1.5 md:p-2 pl-3 md:pl-5 pr-2 md:pr-3 rounded-2xl border-2 transition-all duration-300 min-w-[auto] md:min-w-[240px] ${getModeColor()}`}>
           <button 
             onClick={handleMainTimerClick}
-            className="flex flex-col justify-center flex-1 text-left hover:opacity-80 transition-opacity"
+            className="flex flex-col justify-center flex-1 text-left hover:opacity-80 transition-opacity min-w-[70px]"
             title="Como você quer estudar agora?"
           >
-            {(sessionActive) && <span className="text-[9px] font-black uppercase tracking-widest leading-none mb-1 opacity-70">{timerState !== 'running' ? 'PAUSADO' : (mode === 'cronometro_livre' ? 'CRONÔMETRO LIVRE' : phase === 'focus' ? 'Em Foco' : 'Em Descanso')}</span>}
-            {(!sessionActive) && <span className="text-[9px] font-black uppercase tracking-widest leading-none mb-1 opacity-60">Iniciar sessão</span>}
+            <span className="hidden md:block text-[9px] font-black uppercase tracking-widest leading-none mb-1 opacity-70">
+              {sessionActive ? (timerState !== 'running' ? 'PAUSADO' : (mode === 'cronometro_livre' ? 'CRONÔMETRO LIVRE' : phase === 'focus' ? 'Em Foco' : 'Em Descanso')) : 'Iniciar sessão'}
+            </span>
             <div className="flex items-center gap-2.5">
-              <span className="tabular-nums font-black text-2xl tracking-tighter leading-none mt-0.5">
+              <span className="tabular-nums font-black text-xl md:text-2xl tracking-tighter leading-none mt-0.5">
                 {formatDuration(timeLeft)}
               </span>
             </div>
           </button>
           
-          <button onClick={openSettings} className="shrink-0 p-1.5 rounded-full hover:bg-black/10 transition-colors" title="Configurações">
+          <button onClick={openSettings} className="hidden md:flex shrink-0 p-1.5 rounded-full hover:bg-black/10 transition-colors" title="Configurações">
             <Settings className="w-4 h-4 opacity-70" />
           </button>
           
-          <div className="w-[1px] h-10 bg-current/20 mx-1"></div>
+          <div className="hidden md:block w-[1px] h-10 bg-current/20 mx-1"></div>
           
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1 md:gap-1.5 shrink-0">
             <button 
               onClick={handlePlayButtonClick}
-              className="p-2.5 rounded-xl hover:bg-black/15 transition-colors bg-black/5"
+              className="p-2 md:p-2.5 rounded-xl hover:bg-black/15 transition-colors bg-black/5"
               title={timerState === 'running' ? "Pausar" : "Iniciar"}
             >
-              {timerState === 'running' ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+              {timerState === 'running' ? <Pause className="w-4 h-4 md:w-5 md:h-5 fill-current" /> : <Play className="w-4 h-4 md:w-5 md:h-5 fill-current" />}
             </button>
             <button 
               onClick={skipPhase}
               disabled={!sessionActive || mode === 'cronometro_livre'}
-              className={`p-2.5 rounded-xl hover:bg-black/15 transition-colors ${(!sessionActive || mode === 'cronometro_livre') ? 'opacity-30 cursor-not-allowed' : 'bg-black/5'}`}
+              className={`hidden md:flex p-2.5 rounded-xl hover:bg-black/15 transition-colors ${(!sessionActive || mode === 'cronometro_livre') ? 'opacity-30 cursor-not-allowed' : 'bg-black/5'}`}
               title="Pular Fase"
             >
               <SkipForward className="w-5 h-5 fill-current" />
@@ -157,7 +175,7 @@ export function Header({ title, subtitle, children }: HeaderProps) {
             {sessionActive && (
               <button 
                 onClick={() => toggleWidget(true)}
-                className="p-2.5 rounded-xl hover:bg-black/15 transition-colors bg-black/5"
+                className="hidden md:flex p-2.5 rounded-xl hover:bg-black/15 transition-colors bg-black/5"
                 title="Mostrar Widget"
               >
                 <Maximize2 className="w-4 h-4" />
@@ -206,7 +224,8 @@ export function Header({ title, subtitle, children }: HeaderProps) {
           
           {isUserMenuOpen && (
             <>
-              <div className="fixed inset-0 z-40 bg-black/5" onClick={() => setIsUserMenuOpen(false)}></div>
+              {/* Overlay invisível para fechamento */}
+              <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsUserMenuOpen(false)}></div>
               <div className="absolute right-0 mt-3 w-64 bg-popover border border-outline/30 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="p-5 border-b border-outline/20 bg-surface-container-low/20">
                   <div className="flex items-center gap-3 mb-1">

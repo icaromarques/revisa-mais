@@ -160,7 +160,7 @@ export function CadernoModal({ caderno, onClose }: CadernoModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-background/90 backdrop-blur-sm">
       <div className="w-full max-w-4xl h-[85vh] bg-surface rounded-3xl overflow-hidden flex flex-col shadow-2xl border border-outline/20">
          
          <div className="p-4 border-b border-outline/10 flex justify-between items-center bg-surface-container shrink-0">
