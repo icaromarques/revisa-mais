@@ -308,7 +308,7 @@ export function DataManagement() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-overlay-scrim backdrop-blur-sm"
               onClick={() => setResetModal({ open: false, module: null })}
             />
             
@@ -316,7 +316,7 @@ export function DataManagement() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-lg bg-[#0b0b0f] rounded-[32px] border border-outline/20 p-8 shadow-2xl shadow-black/50 overflow-hidden"
+              className="relative w-full max-w-lg bg-elevated rounded-[32px] border border-outline/20 p-8 shadow-2xl overflow-hidden"
             >
               {/* Background Glow */}
               <div className="absolute -top-24 -right-24 w-48 h-48 bg-error/10 blur-[100px] rounded-full" />

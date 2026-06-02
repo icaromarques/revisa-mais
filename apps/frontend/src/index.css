@@ -48,7 +48,63 @@
   --color-on-surface: #f8fafc;
   --color-on-surface-variant: #94a3b8;
 
+  --color-elevated: #0b0b0f;
+  --color-sidebar: #0a0a0b;
+  --color-popover: #0f1117;
+  --color-hover-overlay: rgba(255, 255, 255, 0.05);
+  --color-overlay-scrim: rgba(0, 0, 0, 0.5);
+  --color-divider: rgba(255, 255, 255, 0.05);
+  --color-gradient-accent: rgba(139, 92, 246, 0.08);
+  --color-glass-bg: rgba(255, 255, 255, 0.03);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-scrollbar-thumb: rgba(255, 255, 255, 0.12);
+  --color-scrollbar-track: transparent;
+  --color-toast-bg: #1e1e24;
+  --color-toast-border: rgba(255, 255, 255, 0.1);
+
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+[data-theme="light"] {
+  --color-surface: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: rgba(0, 0, 0, 0.03);
+  --color-surface-container: rgba(0, 0, 0, 0.04);
+  --color-surface-container-high: rgba(0, 0, 0, 0.06);
+  --color-surface-container-highest: rgba(0, 0, 0, 0.08);
+  --color-surface-variant: rgba(0, 0, 0, 0.06);
+  --color-surface-dim: #f1f5f9;
+  --color-surface-bright: #ffffff;
+
+  --color-secondary: #64748b;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: rgba(0, 0, 0, 0.06);
+  --color-on-secondary-container: #1e293b;
+  --color-secondary-fixed: #475569;
+
+  --color-tertiary-container: rgba(245, 158, 11, 0.12);
+
+  --color-outline: rgba(0, 0, 0, 0.1);
+  --color-outline-variant: rgba(0, 0, 0, 0.08);
+
+  --color-background: #f8fafc;
+  --color-on-background: #0f172a;
+  --color-on-surface: #0f172a;
+  --color-on-surface-variant: #64748b;
+
+  --color-elevated: #ffffff;
+  --color-sidebar: #f1f5f9;
+  --color-popover: #ffffff;
+  --color-hover-overlay: rgba(0, 0, 0, 0.05);
+  --color-overlay-scrim: rgba(15, 23, 42, 0.4);
+  --color-divider: rgba(0, 0, 0, 0.08);
+  --color-gradient-accent: rgba(139, 92, 246, 0.06);
+  --color-glass-bg: rgba(255, 255, 255, 0.72);
+  --color-glass-border: rgba(0, 0, 0, 0.08);
+  --color-scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --color-scrollbar-track: transparent;
+  --color-toast-bg: #ffffff;
+  --color-toast-border: rgba(0, 0, 0, 0.1);
 }
 
 body {
@@ -59,9 +115,17 @@ body {
 }
 
 .glass-panel {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-glass-bg);
+  border: 1px solid var(--color-glass-border);
   backdrop-filter: blur(5px);
+}
+
+.main-gradient {
+  background: linear-gradient(
+    180deg,
+    var(--color-gradient-accent) 0%,
+    var(--color-background) 40%
+  );
 }
 
 .editorial-gradient {
@@ -76,10 +140,9 @@ body {
   scrollbar-width: none;
 }
 
-/* Custom Global Scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.15) transparent; /* Thumb and Track */
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
 }
 
 ::-webkit-scrollbar {
@@ -88,11 +151,11 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--color-scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.12);
+  background-color: var(--color-scrollbar-thumb);
   border-radius: 10px;
   border: 3px solid transparent;
   background-clip: content-box;
@@ -100,7 +163,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(139, 92, 246, 0.6); /* Primary color */
+  background-color: rgba(139, 92, 246, 0.6);
 }
 
 ::-webkit-scrollbar-thumb:active {

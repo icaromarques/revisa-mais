@@ -98,7 +98,7 @@ export function Sidebar() {
       )}
       
       <aside className={cn(
-        "fixed left-0 top-0 h-screen w-[240px] z-[60] lg:z-40 bg-[var(--color-surface-container-lowest)] border-r border-outline flex flex-col py-6 px-4 overflow-y-auto hide-scrollbar transition-transform duration-300 ease-in-out lg:translate-x-0",
+        "fixed left-0 top-0 h-screen w-[240px] z-[60] lg:z-40 bg-sidebar border-r border-outline flex flex-col py-6 px-4 overflow-y-auto hide-scrollbar transition-transform duration-300 ease-in-out lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="mb-8 flex items-center justify-between">
@@ -136,18 +136,18 @@ export function Sidebar() {
 
       <div className="mt-auto border-t border-outline pt-5 relative" ref={newSessionRef}>
         {isNewSessionMenuOpen && (
-          <div className="absolute bottom-full left-0 right-0 mb-2 bg-surface border border-outline/30 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
+          <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-outline/30 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
             <div className="p-1">
-              <button onClick={handleOpenTimerMenu} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-white/5 rounded-lg transition-colors text-left group">
+              <button onClick={handleOpenTimerMenu} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-hover-overlay rounded-lg transition-colors text-left group">
                 <Timer className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" /> 
                 <span className="flex-1">Timer (Pomodoro)</span>
               </button>
-              <button onClick={handleOpenTimerMenu} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-white/5 rounded-lg transition-colors text-left group">
+              <button onClick={handleOpenTimerMenu} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-on-surface hover:bg-hover-overlay rounded-lg transition-colors text-left group">
                 <Clock className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" /> 
                 <span className="flex-1">Cronômetro Livre</span>
               </button>
-              <div className="h-[1px] bg-white/5 my-1 mx-2"></div>
-              <button onClick={handleOpenManualLog} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-white/5 rounded-lg transition-colors text-left group">
+              <div className="h-[1px] bg-divider my-1 mx-2"></div>
+              <button onClick={handleOpenManualLog} className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-hover-overlay rounded-lg transition-colors text-left group">
                 <Edit2 className="w-4 h-4 text-outline group-hover:text-on-surface transition-colors" /> 
                 <span className="flex-1">Registro Manual</span>
               </button>
