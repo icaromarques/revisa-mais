@@ -698,7 +698,7 @@ export function SessionModal() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-background/80 backdrop-blur-md">
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col glass-panel rounded-2xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.6)] animate-in fade-in zoom-in duration-300">
+      <div className="relative w-full max-w-2xl mx-4 max-h-[90vh] overflow-hidden flex flex-col glass-panel rounded-2xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.6)] animate-in fade-in zoom-in duration-300">
         
         {/* Header Section */}
         <div className="flex items-center justify-between px-8 py-6 border-b border-outline">

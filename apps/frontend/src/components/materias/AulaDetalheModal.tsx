@@ -186,7 +186,7 @@ export function AulaDetalheModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-end sm:justify-center p-0 sm:p-4 bg-background/80 backdrop-blur-sm">
-      <div className="w-full h-[90vh] sm:h-[85vh] sm:max-w-4xl glass-panel sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-right duration-300">
+      <div className="w-full h-[90vh] sm:h-[85vh] mx-4 sm:max-w-4xl glass-panel sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom sm:slide-in-from-right duration-300">
          
          {/* Header */}
          <div className="shrink-0 p-6 border-b border-outline flex justify-between items-start bg-surface-container-lowest/50 relative overflow-hidden">

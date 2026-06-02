@@ -321,7 +321,7 @@ export function Calendario() {
             {/* Calendar Header Controls */}
             <div className="flex flex-col mb-4 gap-4">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4 border border-outline/10 p-1 rounded-xl bg-surface-container-lowest">
+                <div className="flex flex-wrap items-center gap-2 border border-outline/10 p-1 rounded-xl bg-surface-container-lowest w-full sm:w-auto overflow-x-auto custom-scrollbar">
                    {['day', 'week', 'month', 'year', 'agenda'].map((v, idx) => (
                       <button
                          key={`viewbtn-${v}-${idx}`}
@@ -332,19 +332,19 @@ export function Calendario() {
                       </button>
                    ))}
                 </div>
-                <div className="flex items-center gap-3">
-                   <button onClick={handleManualSync} disabled={isSyncing} className="p-2 px-4 rounded-xl text-sm font-bold bg-surface-container hover:bg-surface-variant transition-colors flex items-center gap-2">
-                     <RotateCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} /> Sincronizar GCal
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                   <button onClick={handleManualSync} disabled={isSyncing} className="flex-1 sm:flex-none p-2 sm:px-4 rounded-xl text-sm font-bold bg-surface-container hover:bg-surface-variant transition-colors flex items-center justify-center gap-2">
+                     <RotateCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} /> <span className="hidden sm:inline">Sincronizar GCal</span>
                    </button>
-                   <button onClick={openNewEvent} className="btn-primary py-2.5 px-5 rounded-xl text-sm whitespace-nowrap">
-                     <Plus className="w-5 h-5 mr-2" /> Novo Evento
+                   <button onClick={openNewEvent} className="flex-1 sm:flex-none btn-primary py-2.5 px-3 sm:px-5 rounded-xl text-sm flex items-center justify-center whitespace-nowrap">
+                     <Plus className="w-5 h-5 sm:mr-2" /> <span className="hidden sm:inline">Novo Evento</span>
                    </button>
                 </div>
               </div>
               
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-black capitalize">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
+                  <h2 className="text-xl sm:text-2xl font-black capitalize break-words w-full sm:w-auto">
                     {activeView === 'year' ? format(currentDate, 'yyyy', { locale: ptBR }) :
                      activeView === 'day' ? format(currentDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) :
                      activeView === 'week' ? (() => {
@@ -372,11 +372,12 @@ export function Calendario() {
             </div>
 
             {activeView === 'month' && (
-              <div className="border border-outline/10 rounded-2xl overflow-hidden">
-                {/* Weekdays */}
-                <div className="grid grid-cols-7 bg-surface-container border-b border-outline/10">
-                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day, idx) => (
-                    <div key={`header-day-${day}-${idx}`} className="py-3 text-center text-xs font-bold text-outline uppercase tracking-wider">
+              <div className="border border-outline/10 rounded-2xl overflow-hidden custom-scrollbar">
+                <div className="w-full">
+                  {/* Weekdays */}
+                  <div className="grid grid-cols-7 bg-surface-container border-b border-outline/10">
+                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, idx) => (
+                    <div key={`header-day-${day}-${idx}`} className="py-2 sm:py-3 text-center text-[10px] sm:text-xs font-bold text-outline uppercase tracking-wider">
                       {day}
                     </div>
                   ))}
@@ -394,7 +395,7 @@ export function Calendario() {
                       <div 
                         key={`cell-${format(day, 'yyyy-MM-dd')}-${idx}`}
                         onClick={() => handleDayClick(day)}
-                        className={`min-h-[100px] border-b border-r border-outline/10 p-2 cursor-pointer transition-colors relative
+                        className={`min-h-[100px] min-w-0 border-b border-r border-outline/10 p-2 cursor-pointer transition-colors relative
                           ${idx % 7 === 6 ? 'border-r-0' : ''} 
                           ${!isCurrentMonth ? 'bg-surface-container-lowest/50 opacity-50' : 'hover:bg-surface-container/50'}`}
                       >
@@ -407,34 +408,55 @@ export function Calendario() {
                         </div>
 
                         <div className="space-y-1">
-                          {dayEvents.slice(0, 3).map((event, eventIdx) => {
-                            const style = getTypeStyle(event.tipo, event.cor);
-                            return (
-                              <div 
-                                key={getCalendarRenderKey(event, 'month', eventIdx)}
-                                onClick={(e) => handleEventClick(e, event)}
-                                className="text-[10px] px-2 py-1 rounded truncate font-medium border relative pr-4"
-                                style={{ backgroundColor: style.bg, color: style.text, borderColor: style.border }}
-                                title={event.sync_status === 'erro' || event.sync_status === 'precisa_reconectar' ? "Erro de sincronização com GCal" : event.sync_status === 'externo' ? "Google Calendar Externo" : event.sync_status === 'sincronizado' ? "Sincronizado" : "Local Revisa+"}
-                              >
-                                <div className="absolute right-1 top-1 flex flex-col gap-[2px]">
-                                   {event.sync_status === 'sincronizado' && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 opacity-60"></div>}
-                                   {event.sync_status === 'externo' && <div className="w-1.5 h-1.5 rounded-full bg-blue-300 opacity-80"></div>}
-                                   {(event.sync_status === 'erro' || event.sync_status === 'precisa_reconectar') && <div className="w-1.5 h-1.5 rounded-full bg-red-500 opacity-80"></div>}
+                          {/* Desktop View (Text Blocks) */}
+                          <div className="hidden md:block space-y-1">
+                            {dayEvents.slice(0, 3).map((event, eventIdx) => {
+                              const style = getTypeStyle(event.tipo, event.cor);
+                              return (
+                                <div 
+                                  key={getCalendarRenderKey(event, 'month', eventIdx)}
+                                  onClick={(e) => handleEventClick(e, event)}
+                                  className="text-[10px] px-2 py-1 rounded truncate font-medium border relative pr-4"
+                                  style={{ backgroundColor: style.bg, color: style.text, borderColor: style.border }}
+                                  title={event.sync_status === 'erro' || event.sync_status === 'precisa_reconectar' ? "Erro de sincronização com GCal" : event.sync_status === 'externo' ? "Google Calendar Externo" : event.sync_status === 'sincronizado' ? "Sincronizado" : "Local Revisa+"}
+                                >
+                                  <div className="absolute right-1 top-1 flex flex-col gap-[2px]">
+                                     {event.sync_status === 'sincronizado' && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 opacity-60"></div>}
+                                     {event.sync_status === 'externo' && <div className="w-1.5 h-1.5 rounded-full bg-blue-300 opacity-80"></div>}
+                                     {(event.sync_status === 'erro' || event.sync_status === 'precisa_reconectar') && <div className="w-1.5 h-1.5 rounded-full bg-red-500 opacity-80"></div>}
+                                  </div>
+                                  {formatEventTime(event.data_inicio)} - {event.titulo}
                                 </div>
-                                {formatEventTime(event.data_inicio)} - {event.titulo}
+                              );
+                            })}
+                            {dayEvents.length > 3 && (
+                              <div className="text-[10px] text-outline px-2 font-medium">
+                                +{dayEvents.length - 3} mais
                               </div>
-                            );
-                          })}
-                          {dayEvents.length > 3 && (
-                            <div className="text-[10px] text-outline px-2 font-medium">
-                              +{dayEvents.length - 3} mais
-                            </div>
-                          )}
+                            )}
+                          </div>
+
+                          {/* Mobile View (Dots) */}
+                          <div className="md:hidden flex flex-wrap gap-1 px-1 mt-1 justify-center">
+                            {dayEvents.slice(0, 5).map((event, eventIdx) => {
+                              const style = getTypeStyle(event.tipo, event.cor);
+                              return (
+                                <div 
+                                  key={getCalendarRenderKey(event, 'month_mobile', eventIdx)}
+                                  className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full"
+                                  style={{ backgroundColor: style.text }}
+                                />
+                              );
+                            })}
+                            {dayEvents.length > 5 && (
+                              <span className="text-[8px] text-outline font-bold">+{dayEvents.length - 5}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               </div>
             )}

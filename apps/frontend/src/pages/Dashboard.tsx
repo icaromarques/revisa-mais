@@ -172,6 +172,7 @@ export function Dashboard() {
     <>
       <Header title="Dashboard">
         <div className="flex items-center bg-surface-container-low rounded-full border border-outline-variant/10 ml-2 md:ml-4 shadow-inner p-1 relative">
+          {/* Oculta os botões textuais em telas muito pequenas */}
           <div className="hidden sm:flex">
             {(['hoje', 'amanha', '7d', 'mes'] as TimeRange[]).map(rt => (
               <button 
@@ -298,7 +299,7 @@ export function Dashboard() {
         </SectionErrorBoundary>
 
         {/* Action Level & Organization Level */}
-        <div className="grid grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 items-start">
            
            {/* Coluna Principal Hoje (Central) */}
            <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">

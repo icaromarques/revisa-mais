@@ -414,7 +414,7 @@ export function Configuracoes() {
     <div className="flex flex-col min-h-screen bg-background text-on-surface">
       <Header title="Configurações do Sistema" />
 
-      <main className="flex-1 p-8 max-w-6xl mx-auto w-full space-y-8 animate-in fade-in duration-500 pb-20">
+      <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
         
         {/* Executive Summary */}
         {summary && (
@@ -448,7 +448,7 @@ export function Configuracoes() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 items-start">
           
           {/* Navigation Sidebar */}
           <aside className="lg:col-span-4 space-y-2">
