@@ -84,8 +84,9 @@ Siga os passos abaixo para rodar o ecossistema inteiro na sua máquina.
 4.  **Preparar o Banco de Dados (Backend)**:
     ```bash
     cd apps/backend
-    npx prisma migrate dev --name init
+    npx prisma migrate deploy
     ```
+    Use `npx prisma migrate dev --name <nome>` apenas ao criar uma nova migration durante o desenvolvimento.
 
 5.  **Rodar o Projeto**:
     Na pasta raiz do projeto, inicie os dois servidores ao mesmo tempo:

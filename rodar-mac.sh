@@ -17,10 +17,10 @@ docker-compose up -d
 echo "📥 2. Instalando as dependências do projeto..."
 npm install
 
-echo "🗄️ 3. Sincronizando as tabelas do Banco de Dados..."
+echo "🗄️ 3. Aplicando migrations do Prisma no banco local..."
 cd apps/backend
-# Força a criação das tabelas no banco local recém-criado
-npx prisma db push
+# Aplica migrations versionadas já existentes (use migrate dev apenas ao criar nova migration)
+npx prisma migrate deploy
 cd ../..
 
 echo "✨ 4. Tudo pronto! Iniciando o Frontend e o Backend..."

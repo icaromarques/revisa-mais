@@ -149,7 +149,7 @@ sh rodar-mac.sh
 **O que esse script faz sozinho por você?**
 1. Sobe o Banco de Dados PostgreSQL no seu Docker.
 2. Instala qualquer pacote novo (`npm install`).
-3. Cria as tabelas do Prisma no seu banco local zerado (`npx prisma db push`).
+3. Aplica as migrations versionadas do Prisma no banco local (`npx prisma migrate deploy`).
 4. Liga o Backend (porta 4000) e o Frontend (porta 3000) ao mesmo tempo.
 
 Quando quiser parar, é só clicar no Terminal e apertar `CTRL + C`. Simples assim!
