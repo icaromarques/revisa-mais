@@ -7,7 +7,7 @@ import { apiClient } from '@/lib/api';
 import { X } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { DaySelector } from './DaySelector';
+import { DaySelector } from '@/components/common/DaySelector';
 import { ColorTokenPicker } from '@/components/ColorTokenPicker';
 import { DateInputMasked } from '@/components/ui/DateInputMasked';
 import { TimeInputMasked } from '@/components/ui/TimeInputMasked';

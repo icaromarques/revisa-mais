@@ -5,7 +5,7 @@ import { availabilityService } from '@/services/availabilityService';
 import { X, Calendar, Repeat } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { useConfirm } from '@/contexts/ConfirmContext';
-import { DaySelector } from './DaySelector';
+import { DaySelector } from '@/components/common/DaySelector';
 import { ColorTokenPicker } from '@/components/ColorTokenPicker';
 import { normalizeColorId } from '@/lib/colors';
 
