@@ -61,7 +61,7 @@ function handleConnection(ws: WebSocket, auth: WsAuthPayload): void {
     sendJson(ws, { type: 'ping', ts: Date.now() });
   }, PING_INTERVAL_MS);
 
-  ws.on('message', (raw) => {
+  ws.on('message', (raw: any) => {
     try {
       const message = JSON.parse(raw.toString()) as WsClientMessage;
       if (message.type === 'pong') {
@@ -105,7 +105,7 @@ export function attachWebSocketServer(httpServer: Server): WebSocketServer {
       return;
     }
 
-    wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       handleConnection(ws, auth);
     });
   });
