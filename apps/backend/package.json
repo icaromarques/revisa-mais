@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test src/**/*.test.ts",
+    "audit:grade-ocorrencias": "tsx src/scripts/audit-grade-ocorrencias.ts"
   },
   "keywords": [],
   "author": "",

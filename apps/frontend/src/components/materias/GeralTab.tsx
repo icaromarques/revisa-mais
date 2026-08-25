@@ -8,26 +8,11 @@ import { format, isToday, isFuture, isPast, addDays } from 'date-fns';
 import { parseValidDate, safeFormat } from '@/lib/utils';
 import { ptBR } from 'date-fns/locale';
 import { MaterialCard } from './MaterialCard';
-import { calculateTotalExpectedOccurrences } from '@/lib/attendanceHelper';
 import { ModalFaltaManual } from '@/components/ModalFaltaManual';
-import { calcularResumoFaltas, analisarLimiteDeFaltas } from '@/utils/faltasCalculator';
 import { calculateSubjectPriority } from '@/utils/priorityCalculator';
 import { getCalendarRenderKey } from '@/lib/calendar-utils';
-
-interface FaltasResumoApi {
-  total_aulas_previstas: number;
-  total_previsto_bruto?: boolean;
-  total_previsto_nota?: string;
-  faltas_contabilizadas: number;
-  percentual_faltas: number | null;
-  limite_percentual: number | null;
-  minimo_faltas_para_reprovar: number | null;
-  maximo_faltas_sem_reprovar: number | null;
-  faltas_ainda_permitidas_sem_reprovar: number | null;
-  percentual_do_limite_consumido: number | null;
-  situacao: 'indeterminado' | 'seguro' | 'atencao' | 'critico' | 'reprovado_limite';
-  reprovado_por_limite?: boolean;
-}
+import { calcularResumoOperacionalFaltas } from '@/utils/ocorrenciasOperacional';
+import { FaltasResumoApi, formatMargemFaltasText, situacaoToRiskStatus } from '@/types/faltas';
 
 interface GeralTabProps {
   materia: any;
@@ -119,45 +104,20 @@ export function GeralTab({
       .sort((a,b) => parseValidDate(a.data_prevista).getTime() - parseValidDate(b.data_prevista).getTime());
     const nextReview = upcomingReviews[0];
     
-    // Faltas — prefer backend resumo when available
-    const resumoFaltas = calcularResumoFaltas(ocorrencias);
-    const faltasCount = faltasResumo?.faltas_contabilizadas ?? resumoFaltas.faltasParaLimite;
-    const reposicaoPendente = resumoFaltas.pendentesReposicao;
-    const conteudosRecuperados = resumoFaltas.conteudosRecuperados;
-    const totalFaltasRegistradas = resumoFaltas.totalRegistrado;
-    
-    let totalClassesExpected = faltasResumo?.total_aulas_previstas ?? 0;
-    let limiteFaltas = faltasResumo?.maximo_faltas_sem_reprovar ?? 0;
-    let percentualFaltasReal = faltasResumo?.percentual_faltas ?? null;
-    let percentualLimiteConsumido = faltasResumo?.percentual_do_limite_consumido ?? null;
-    let faltasRestantes = faltasResumo?.faltas_ainda_permitidas_sem_reprovar ?? 0;
-    let reprovadoPorLimite = faltasResumo?.reprovado_por_limite ?? false;
-    let riskStatus: 'safe'|'warning'|'critical' = 'safe';
+    // Faltas — academic metrics from backend only
+    const resumoOperacional = calcularResumoOperacionalFaltas(ocorrencias);
+    const reposicaoPendente = resumoOperacional.pendentesReposicao;
+    const conteudosRecuperados = resumoOperacional.conteudosRecuperados;
+    const totalFaltasRegistradas = resumoOperacional.totalRegistrado;
 
-    if (faltasResumo) {
-      if (faltasResumo.situacao === 'reprovado_limite' || faltasResumo.reprovado_por_limite) {
-        riskStatus = 'critical';
-      } else if (faltasResumo.situacao === 'critico') {
-        riskStatus = 'critical';
-      } else if (faltasResumo.situacao === 'atencao') {
-        riskStatus = 'warning';
-      }
-      if (faltasResumo.maximo_faltas_sem_reprovar != null) {
-        limiteFaltas = faltasResumo.maximo_faltas_sem_reprovar;
-      }
-    } else if (materia.periodo_inicio && materia.periodo_fim && grade.length > 0) {
-      totalClassesExpected = calculateTotalExpectedOccurrences(grade, materia.periodo_inicio, materia.periodo_fim);
-      const analiseLimite = analisarLimiteDeFaltas(totalClassesExpected, materia.limite_faltas_percentual, resumoFaltas);
-      if (analiseLimite) {
-         limiteFaltas = analiseLimite.limitePermitido;
-         percentualLimiteConsumido = analiseLimite.percentualUsado;
-         riskStatus = analiseLimite.riskStatus;
-         faltasRestantes = analiseLimite.faltasRestantes;
-         percentualFaltasReal = totalClassesExpected > 0
-           ? Math.round((faltasCount / totalClassesExpected) * 10000) / 100
-           : null;
-      }
-    }
+    const faltasCount = faltasResumo?.faltas_contabilizadas ?? 0;
+    const totalClassesExpected = faltasResumo?.total_aulas_previstas ?? 0;
+    const limiteFaltas = faltasResumo?.maximo_faltas_sem_reprovar ?? 0;
+    const percentualFaltasReal = faltasResumo?.percentual_faltas ?? null;
+    const percentualLimiteConsumido = faltasResumo?.percentual_do_limite_consumido ?? null;
+    const faltasRestantes = faltasResumo?.faltas_ainda_permitidas_sem_reprovar ?? 0;
+    const reprovadoPorLimite = faltasResumo?.reprovado_por_limite ?? false;
+    const riskStatus = faltasResumo ? situacaoToRiskStatus(faltasResumo.situacao) : 'safe';
     
     // Média
     const notasLançadas = notas.filter(n => n.nota_obtida !== null && n.nota_obtida !== undefined && n.status === 'lancada');
@@ -191,9 +151,9 @@ export function GeralTab({
       totalHoras,
       questoesFeitas,
       totalFaltasRegistradas,
-      resumoFaltas
+      resumoOperacional
     };
-  }, [aulas, events, revisoes, ocorrencias, notas, sessoes, materia, grade, faltasResumo]);
+  }, [aulas, events, revisoes, ocorrencias, notas, sessoes, materia, faltasResumo]);
 
   // Calculo de prioridade
   const priorityInfo = useMemo(() => {
@@ -205,9 +165,10 @@ export function GeralTab({
       sessoes,
       topicos,
       notas,
-      totalClassesExpected: resumoEstrategico.totalClassesExpected
+      totalClassesExpected: resumoEstrategico.totalClassesExpected,
+      faltasResumo
     });
-  }, [materia, events, revisoes, ocorrencias, sessoes, topicos, notas, resumoEstrategico.totalClassesExpected]);
+  }, [materia, events, revisoes, ocorrencias, sessoes, topicos, notas, resumoEstrategico.totalClassesExpected, faltasResumo]);
 
   // 1. STATS & ALERTS
   const alerts = useMemo(() => {
@@ -326,15 +287,25 @@ export function GeralTab({
         action: null
       });
     } else if (resumoEstrategico.riskStatus === 'critical') {
-      const restam = resumoEstrategico.faltasRestantes;
       list.push({
         id: 'faltas-risco-critico',
         type: 'error',
         icon: <AlertCircle className="w-4 h-4" />,
         title: `Risco Crítico por Faltas`,
-        desc: restam <= 0
-          ? 'Você atingiu o máximo de faltas permitidas antes da reprovação.'
-          : `Você consumiu ${Math.round(resumoEstrategico.faltasUsadasPercentual ?? 0)}% do limite. Restam apenas ${restam} falta(s).`,
+        desc: formatMargemFaltasText({
+          situacao: faltasResumo?.situacao ?? 'critico',
+          reprovado_por_limite: resumoEstrategico.reprovadoPorLimite,
+          faltas_ainda_permitidas_sem_reprovar: resumoEstrategico.faltasRestantes,
+          faltas_contabilizadas: resumoEstrategico.faltasCount,
+          percentual_faltas: resumoEstrategico.percentualFaltasReal,
+          limite_percentual: materia.limite_faltas_percentual ?? null,
+          percentual_do_limite_consumido: resumoEstrategico.percentualLimiteConsumido,
+          total_aulas_previstas: resumoEstrategico.totalClassesExpected,
+          minimo_faltas_para_reprovar: null,
+          maximo_faltas_sem_reprovar: null
+        }) + (resumoEstrategico.percentualLimiteConsumido != null
+          ? ` (${Math.round(resumoEstrategico.percentualLimiteConsumido)}% do limite consumido)`
+          : ''),
         action: null
       });
     } else if (resumoEstrategico.riskStatus === 'warning') {
@@ -344,13 +315,15 @@ export function GeralTab({
         type: 'warning',
         icon: <AlertCircle className="w-4 h-4" />,
         title: `Atenção com Faltas`,
-        desc: `Você já usou ${Math.round(resumoEstrategico.faltasUsadasPercentual)}% do limite. Restam ${restam} falta(s).`,
+        desc: `Você consumiu ${Math.round(resumoEstrategico.percentualLimiteConsumido ?? 0)}% do limite.${
+          restam > 0 ? ` Restam ${restam} falta(s).` : ' Você atingiu a margem máxima antes do limite.'
+        }`,
         action: null
       });
     }
 
     return list;
-  }, [revisoes, aulas, topicos, events, onTabChange, resumoEstrategico]);
+  }, [revisoes, aulas, topicos, events, onTabChange, resumoEstrategico, faltasResumo, ocorrencias, onReporAula]);
 
   // 2. AULAS SECTIONS
   const aulasSections = useMemo(() => {
@@ -632,7 +605,18 @@ export function GeralTab({
                <span className="text-[10px] font-bold text-on-surface">
                   {resumoEstrategico.reprovadoPorLimite
                     ? 'Reprovado por limite de faltas'
-                    : `${resumoEstrategico.faltasRestantes} falta(s) ainda permitidas`}
+                    : formatMargemFaltasText({
+                        situacao: faltasResumo?.situacao ?? 'seguro',
+                        reprovado_por_limite: resumoEstrategico.reprovadoPorLimite,
+                        faltas_ainda_permitidas_sem_reprovar: resumoEstrategico.faltasRestantes,
+                        faltas_contabilizadas: resumoEstrategico.faltasCount,
+                        percentual_faltas: resumoEstrategico.percentualFaltasReal,
+                        limite_percentual: materia.limite_faltas_percentual ?? null,
+                        percentual_do_limite_consumido: resumoEstrategico.percentualLimiteConsumido,
+                        total_aulas_previstas: resumoEstrategico.totalClassesExpected,
+                        minimo_faltas_para_reprovar: null,
+                        maximo_faltas_sem_reprovar: null
+                      })}
                </span>
                
                <div className="w-full flex flex-col gap-1 mt-1">
@@ -747,11 +731,11 @@ export function GeralTab({
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase font-bold text-success">Com Atestado</span>
-                <span className="text-lg font-black text-success">{resumoEstrategico.resumoFaltas.comAtestado}</span>
+                <span className="text-lg font-black text-success">{resumoEstrategico.resumoOperacional.comAtestado}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase font-bold text-tertiary">Justificadas</span>
-                <span className="text-lg font-black text-tertiary">{resumoEstrategico.resumoFaltas.justificadas}</span>
+                <span className="text-lg font-black text-tertiary">{resumoEstrategico.resumoOperacional.justificadas}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase font-bold text-on-surface-variant">Retroativas</span>
@@ -759,7 +743,7 @@ export function GeralTab({
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] uppercase font-bold text-warning">A Repor</span>
-                <span className="text-lg font-black text-warning">{resumoEstrategico.resumoFaltas.pendentesReposicao}</span>
+                <span className="text-lg font-black text-warning">{resumoEstrategico.resumoOperacional.pendentesReposicao}</span>
               </div>
            </div>
         </div>

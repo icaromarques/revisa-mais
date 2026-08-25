@@ -11,7 +11,9 @@ import { toast } from '@/lib/toast';
 import { ModalFaltaManual } from '@/components/ModalFaltaManual';
 import { ModalRecuperarFalta } from '@/components/ModalRecuperarFalta';
 import { ModalExcluirFalta } from '@/components/ModalExcluirFalta';
-import { calcularResumoFaltas } from '@/utils/faltasCalculator';
+import { calcularResumoOperacionalFaltas } from '@/utils/ocorrenciasOperacional';
+import { fetchFaltasResumos } from '@/services/faltasService';
+import { FaltasResumoApi, faltasResumosToMap, formatMargemFaltasText, situacaoToRiskStatus } from '@/types/faltas';
 
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -29,6 +31,7 @@ export function FaltasPage() {
   const [faltaToEdit, setFaltaToEdit] = useState<OcorrenciaGrade | undefined>();
   const [faltaToRecuperar, setFaltaToRecuperar] = useState<OcorrenciaGrade | undefined>();
   const [faltaToExcluir, setFaltaToExcluir] = useState<OcorrenciaGrade | undefined>();
+  const [faltasResumosMap, setFaltasResumosMap] = useState<Record<string, FaltasResumoApi>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -37,14 +40,16 @@ export function FaltasPage() {
 
     const fetchData = async () => {
       try {
-        const [{data: ocs}, {data: mats}] = await Promise.all([
+        const [{data: ocs}, {data: mats}, faltasResumos] = await Promise.all([
            apiClient.get('/ocorrencias'),
-           apiClient.get('/materias')
+           apiClient.get('/materias'),
+           fetchFaltasResumos()
         ]);
         
         if (isMounted) {
            setOcorrencias(ocs.filter((o: any) => o.status === 'falta' || o.status === 'conteudo_recuperado'));
            setMaterias(mats);
+           setFaltasResumosMap(faltasResumosToMap(faltasResumos));
            setLoading(false);
         }
       } catch (e) {
@@ -73,13 +78,17 @@ export function FaltasPage() {
     return isRecuperado;
   }).sort((a, b) => b.data.localeCompare(a.data));
 
-  // Centralised metrics
-  const resumoFaltas = calcularResumoFaltas(ocorrencias);
+  // Operational metrics (listagem) — academic limits come from backend resumos
+  const resumoOperacional = calcularResumoOperacionalFaltas(ocorrencias);
 
-  const faltasParaLimite = resumoFaltas.faltasParaLimite;
-  const totalFaltas = resumoFaltas.totalRegistrado;
-  const pendentes = resumoFaltas.pendentesReposicao;
-  const recuperadas = resumoFaltas.conteudosRecuperados;
+  const totalFaltas = resumoOperacional.totalRegistrado;
+  const pendentes = resumoOperacional.pendentesReposicao;
+  const recuperadas = resumoOperacional.conteudosRecuperados;
+
+  const materiasComResumo = materias
+    .map((m) => ({ materia: m, resumo: faltasResumosMap[m.id] }))
+    .filter(({ resumo }) => resumo && resumo.faltas_contabilizadas > 0)
+    .sort((a, b) => (b.resumo?.percentual_do_limite_consumido ?? 0) - (a.resumo?.percentual_do_limite_consumido ?? 0));
 
   const handleMarkAsRecuperado = (oc: OcorrenciaGrade) => {
     setFaltaToRecuperar(oc);
@@ -151,6 +160,36 @@ export function FaltasPage() {
           </button>
         </div>
 
+        {materiasComResumo.length > 0 && (
+          <div className="glass-panel p-6 rounded-3xl border-outline/10">
+            <h3 className="text-xs font-black uppercase tracking-widest text-outline mb-4">Situação por Matéria</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {materiasComResumo.map(({ materia, resumo }) => {
+                if (!resumo) return null;
+                const risk = situacaoToRiskStatus(resumo.situacao);
+                return (
+                  <div key={materia.id} className="p-4 rounded-2xl bg-surface-container border border-outline/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: materia.cor || '#666' }} />
+                      <h4 className="font-bold text-sm truncate">{materia.nome}</h4>
+                    </div>
+                    <p className="text-xs text-on-surface-variant">
+                      {resumo.faltas_contabilizadas} falta(s) · {resumo.percentual_faltas ?? 0}% de faltas
+                      {resumo.limite_percentual != null && ` (limite ${resumo.limite_percentual}%)`}
+                    </p>
+                    {resumo.percentual_do_limite_consumido != null && (
+                      <p className={`text-[10px] font-bold mt-1 ${risk === 'critical' ? 'text-error' : risk === 'warning' ? 'text-warning' : 'text-on-surface-variant'}`}>
+                        {Math.round(resumo.percentual_do_limite_consumido)}% do limite consumido
+                      </p>
+                    )}
+                    <p className="text-[10px] text-on-surface-variant mt-1">{formatMargemFaltasText(resumo)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex items-center justify-between">
           <div className="flex bg-surface-container rounded-full p-1 border border-outline/10">
@@ -200,6 +239,7 @@ export function FaltasPage() {
             ) : (
               filtered.map((oc) => {
                 const materia = materiasMap[oc.materia_id];
+                const resumoMateria = faltasResumosMap[oc.materia_id];
                 const isRecuperado = oc.status === 'conteudo_recuperado' || oc.status_reposicao === 'recuperado';
                 return (
                   <div 
@@ -235,6 +275,16 @@ export function FaltasPage() {
                           {oc.tipo_falta === 'justificada' && (
                             <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-primary/30 text-primary bg-primary/10">
                               Justificada
+                            </span>
+                          )}
+                          {resumoMateria && resumoMateria.situacao !== 'indeterminado' && resumoMateria.situacao !== 'seguro' && (
+                            <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                              resumoMateria.situacao === 'reprovado_limite' ? 'border-error/30 text-error bg-error/10' :
+                              resumoMateria.situacao === 'critico' ? 'border-error/30 text-error bg-error/10' :
+                              'border-warning/30 text-warning bg-warning/10'
+                            }`}>
+                              {resumoMateria.situacao === 'reprovado_limite' ? 'Limite atingido' :
+                               resumoMateria.situacao === 'critico' ? 'Risco crítico' : 'Atenção faltas'}
                             </span>
                           )}
                         </div>

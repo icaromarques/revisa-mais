@@ -9,10 +9,10 @@ import { gradeOccurrenceService } from '@/services/gradeOccurrenceService';
 import { startOfDay } from 'date-fns';
 import { getPerformanceClass, PerformanceClass } from '@/lib/performanceUtils';
 import { OcorrenciaGrade } from '@/types/availability';
-import { calculateTotalExpectedOccurrences } from '@/lib/attendanceHelper';
-import { calcularResumoFaltas, analisarLimiteDeFaltas } from '@/utils/faltasCalculator';
 import { parseValidDate } from '@/lib/utils';
 import { integrityService } from '@/services/integrityService';
+import { fetchFaltasResumos } from '@/services/faltasService';
+import { FaltasResumoApi, faltasResumosToMap, formatMargemFaltasText } from '@/types/faltas';
 
 export interface DashboardData {
   loading: boolean;
@@ -55,6 +55,7 @@ export function useDashboardData(userId: string | undefined, timeRange: TimeRang
   const [materias, setMaterias] = useState<any[]>([]);
   const [blockDocs, setBlockDocs] = useState<any[]>([]);
   const [ocorrencias, setOcorrencias] = useState<OcorrenciaGrade[]>([]);
+  const [faltasResumosMap, setFaltasResumosMap] = useState<Record<string, FaltasResumoApi>>({});
 
   useEffect(() => {
     if (!userId) {
@@ -119,6 +120,10 @@ export function useDashboardData(userId: string | undefined, timeRange: TimeRang
         const { data: ocorrenciasData } = await apiClient.get('/ocorrencias'); // Rota a ser ajustada se necessário
         if (!isMounted) return;
         setOcorrencias(ocorrenciasData.map((d: any) => integrityService.normalizeAbsence(d)));
+
+        const faltasResumos = await fetchFaltasResumos();
+        if (!isMounted) return;
+        setFaltasResumosMap(faltasResumosToMap(faltasResumos));
         
         // Trigger daily occurrences (should idealmente estar no BE em Cron)
         gradeOccurrenceService.generateDailyOccurrences(userId);
@@ -184,33 +189,38 @@ export function useDashboardData(userId: string | undefined, timeRange: TimeRang
   const criticalSubject = useMemo(() => {
     let riskSubject = null;
     let highestUsedLimit = 0;
-    
-    materias.forEach(mat => {
-      if (mat.periodo_inicio && mat.periodo_fim && mat.limite_faltas_percentual) {
-        const gradeMat = gradeDocs.filter(g => g.materia_id === mat.id);
-        const ocorrenciasMatCount = ocorrencias.filter(o => o.materia_id === mat.id);
-        
-        const expected = calculateTotalExpectedOccurrences(gradeMat, mat.periodo_inicio, mat.periodo_fim);
-        const resumoFaltas = calcularResumoFaltas(ocorrenciasMatCount);
-        const analise = analisarLimiteDeFaltas(expected, mat.limite_faltas_percentual, resumoFaltas);
-        
-        if (analise && analise.riskStatus === 'critical' && analise.percentualUsado > highestUsedLimit) {
-             highestUsedLimit = analise.percentualUsado;
-             const limitRemaining = analise.faltasRestantes;
-             riskSubject = {
-               id: mat.id,
-               nome: mat.nome,
-               reviews: 0,
-               score: 0,
-               performance: { level: 'fraco', color: 'text-error', message: limitRemaining <= 0 ? `Límite de faltas estourado.` : `Risco de reprovação por faltas. Restam ${limitRemaining} faltas.` },
-               type: 'faltas',
-               percUsed: analise.percentualUsado,
-               limitRemaining
-             };
-        }
+
+    materias.forEach((mat) => {
+      const resumo = faltasResumosMap[mat.id];
+      if (!resumo || resumo.situacao === 'indeterminado') return;
+
+      const isFaltasRisk =
+        resumo.situacao === 'critico' || resumo.situacao === 'reprovado_limite';
+      const percentualConsumido = resumo.percentual_do_limite_consumido ?? 0;
+
+      if (isFaltasRisk && percentualConsumido >= highestUsedLimit) {
+        highestUsedLimit = percentualConsumido;
+        const margemTexto = formatMargemFaltasText(resumo);
+        riskSubject = {
+          id: mat.id,
+          nome: mat.nome,
+          reviews: 0,
+          score: 0,
+          performance: {
+            level: 'fraco',
+            color: 'text-error',
+            message:
+              resumo.reprovado_por_limite || resumo.situacao === 'reprovado_limite'
+                ? 'Limite de faltas estourado.'
+                : margemTexto
+          },
+          type: 'faltas',
+          percUsed: percentualConsumido,
+          limitRemaining: resumo.faltas_ainda_permitidas_sem_reprovar ?? 0
+        };
       }
     });
-    
+
     if (riskSubject) return riskSubject;
 
     if (Object.keys(materiasMap).length === 0) return null;
@@ -243,7 +253,7 @@ export function useDashboardData(userId: string | undefined, timeRange: TimeRang
       performance: perfCrit,
       type: 'performance'
     };
-  }, [sessoes, revisoesPendentes, materiasMap, materias, ocorrencias, gradeDocs]);
+  }, [sessoes, revisoesPendentes, materiasMap, materias, faltasResumosMap]);
 
   return {
     loading,

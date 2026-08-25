@@ -15,6 +15,8 @@ import { ColorTokenPicker } from '@/components/ColorTokenPicker';
 import { DateInputMasked } from '@/components/ui/DateInputMasked';
 import { calculateSubjectPriority } from '@/utils/priorityCalculator';
 import { apiClient } from '@/lib/api';
+import { fetchFaltasResumos } from '@/services/faltasService';
+import { FaltasResumoApi, faltasResumosToMap, situacaoToRiskStatus } from '@/types/faltas';
 
 export { calculateSubjectPriority };
 
@@ -81,6 +83,7 @@ export function Materias() {
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [eventModalInitial, setEventModalInitial] = useState<any>({});
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
+  const [faltasResumosMap, setFaltasResumosMap] = useState<Record<string, FaltasResumoApi>>({});
 
   useEffect(() => {
     if (!user) return;
@@ -106,11 +109,17 @@ export function Materias() {
            const resOcs = await apiClient.get('/ocorrencias');
            ocs = resOcs.data;
          } catch(e) { console.warn("Failed to fetch ocorrencias", e); }
+
+         let faltasResumos: FaltasResumoApi[] = [];
+         try {
+           faltasResumos = await fetchFaltasResumos();
+         } catch(e) { console.warn("Failed to fetch faltas resumos", e); }
          
          if (isMounted) {
            setMaterias(mats);
            setEvents(evts.filter((e: any) => e && e.data_inicio && !isNaN(new Date(e.data_inicio).getTime())));
            setOcorrencias(ocs);
+           setFaltasResumosMap(faltasResumosToMap(faltasResumos));
          }
        } catch (error) {
          console.error("Erro ao carregar dados", error);
@@ -471,24 +480,49 @@ export function Materias() {
                            <span>Revisão: <strong className="text-on-surface">Pendente</strong></span>
                         </div>
                         {(() => {
-                          const faltasDaMateria = ocorrencias.filter(o => 
-                            o.materia_id === materia.id && 
-                            (o.status === 'falta' || o.status === 'conteudo_recuperado') && 
-                            o.tipo_falta !== 'com_atestado'
-                          );
-                          const totalFaltasObj = faltasDaMateria.reduce((acc, obj) => acc + (obj.quantidade_ocorrencias || 1), 0);
-                          return totalFaltasObj > 0 ? (
-                            <div className="flex items-center gap-1.5 text-[10px] text-error">
-                               <AlertCircle className="w-3 h-3" />
-                               <span className="font-bold">{totalFaltasObj} {totalFaltasObj === 1 ? 'falta' : 'faltas'}</span>
+                          const resumo = faltasResumosMap[materia.id];
+                          const faltasCount = resumo?.faltas_contabilizadas ?? 0;
+                          if (faltasCount <= 0 && !resumo?.situacao) return null;
+
+                          const risk = resumo ? situacaoToRiskStatus(resumo.situacao) : 'safe';
+                          const situacaoLabel =
+                            resumo?.situacao === 'reprovado_limite' ? 'Limite atingido' :
+                            resumo?.situacao === 'critico' ? 'Risco crítico' :
+                            resumo?.situacao === 'atencao' ? 'Atenção' :
+                            null;
+
+                          return (
+                            <div className="flex flex-col gap-0.5">
+                              <div className={`flex items-center gap-1.5 text-[10px] ${risk === 'critical' ? 'text-error' : risk === 'warning' ? 'text-warning' : 'text-on-surface-variant'}`}>
+                                <AlertCircle className="w-3 h-3" />
+                                <span className="font-bold">
+                                  {faltasCount} {faltasCount === 1 ? 'falta' : 'faltas'}
+                                  {resumo?.percentual_faltas != null && resumo.limite_percentual != null && (
+                                    <span className="font-medium text-on-surface-variant"> · {resumo.percentual_faltas}% (lim. {resumo.limite_percentual}%)</span>
+                                  )}
+                                </span>
+                              </div>
+                              {situacaoLabel && (
+                                <span className={`text-[9px] font-bold uppercase tracking-wider ${risk === 'critical' ? 'text-error' : 'text-warning'}`}>
+                                  {situacaoLabel}
+                                  {resumo?.percentual_do_limite_consumido != null && (
+                                    <span className="normal-case font-medium"> · {resumo.percentual_do_limite_consumido}% do limite</span>
+                                  )}
+                                </span>
+                              )}
                             </div>
-                          ) : null;
+                          );
                         })()}
                       </div>
                       
                       {/* Priority Hint */}
                       {(() => {
-                          const p = calculateSubjectPriority({ materia, events, ocorrencias });
+                          const p = calculateSubjectPriority({
+                            materia,
+                            events,
+                            ocorrencias: ocorrencias.filter((o) => o.materia_id === materia.id),
+                            faltasResumo: faltasResumosMap[materia.id]
+                          });
                           const labelMap = { baixa: 'Baixa', media: 'Média', alta: 'Alta', critica: 'Crítica' };
                           const nivelLabel = labelMap[p.level];
                           return (

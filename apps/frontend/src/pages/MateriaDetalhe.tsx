@@ -32,7 +32,7 @@ import { aulaService } from '@/services/aulaService';
 import { useSessionModal } from '@/contexts/SessionModalContext';
 import { SectionErrorBoundary } from '@/components/ErrorBoundary';
 import { cascadeDeleteService } from '@/services/cascadeDeleteService';
-import { calcularResumoFaltas } from '@/utils/faltasCalculator';
+import { calcularResumoOperacionalFaltas } from '@/utils/ocorrenciasOperacional';
 import { integrityService } from '@/services/integrityService';
 
 export function MateriaDetalhe() {
@@ -394,7 +394,7 @@ export function MateriaDetalhe() {
     const pendingReviews = revisoes.filter(r => r.status === 'pendente' && isValidDate(r.data_prevista) && parseValidDate(r.data_prevista) >= now);
 const delayedReviews = revisoes.filter(r => r.status === 'pendente' && isValidDate(r.data_prevista) && parseValidDate(r.data_prevista) < now);
 
-    const resumoFaltas = calcularResumoFaltas(ocorrencias);
+    const resumoOperacional = calcularResumoOperacionalFaltas(ocorrencias);
 
     return {
       totalHoras,
@@ -407,13 +407,13 @@ const delayedReviews = revisoes.filter(r => r.status === 'pendente' && isValidDa
       delayedReviewsCount: delayedReviews.length,
       aulasCount: aulas.length,
       aulasPendentes: aulas.filter(a => a.status === 'pendente' || a.status === 'revisar').length,
-      faltas: resumoFaltas.faltasParaLimite,
+      faltas: faltasResumo?.faltas_contabilizadas ?? 0,
       ocorrenciasPendentes: ocorrencias.filter(o => o.status === 'pendente_confirmacao'),
-      aulasPerdidasCount: resumoFaltas.pendentesReposicao,
+      aulasPerdidasCount: resumoOperacional.pendentesReposicao,
       aulasPerdidasItems: ocorrencias.filter(o => (o.status === 'falta' || o.status === 'conteudo_recuperado') && o.status_reposicao !== 'recuperado'),
-      aulasRecuperadas: resumoFaltas.conteudosRecuperados
+      aulasRecuperadas: resumoOperacional.conteudosRecuperados
     };
-  }, [sessoes, topicos, events, revisoes, aulas, ocorrencias, materia]);
+  }, [sessoes, topicos, events, revisoes, aulas, ocorrencias, materia, faltasResumo]);
 
 
   if (loading && !materia) {

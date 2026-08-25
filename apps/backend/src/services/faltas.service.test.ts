@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildFaltasResumo,
+  buildFaltasResumosForMaterias,
   calculateTotalExpectedOccurrences,
   countFaltasContabilizadas,
   countFaltaUnits
@@ -133,5 +134,37 @@ describe('calculateTotalExpectedOccurrences — múltiplos slots por dia', () =>
     // Jan 2026: Tue = 6th only in first week range 1-7
     const total = calculateTotalExpectedOccurrences(grade, '2026-01-01', '2026-01-07');
     assert.equal(total, 3);
+  });
+});
+
+describe('buildFaltasResumosForMaterias — batch', () => {
+  it('returns one resumo per materia using the same buildFaltasResumo rules', () => {
+    const materias = [
+      { id: 'm1', periodoInicio: '2026-01-01', periodoFim: '2026-01-31', limiteFaltasPercentual: 25 },
+      { id: 'm2', periodoInicio: null, periodoFim: null, limiteFaltasPercentual: 25 }
+    ];
+    const grade = [
+      {
+        materiaId: 'm1',
+        ativo: true,
+        recorrente: true,
+        dias_semana: [1],
+        periodo_inicio: '2026-01-01',
+        periodo_fim: '2026-01-31'
+      }
+    ];
+    const ocorrencias = Array.from({ length: 14 }, (_, i) => ({
+      materiaId: 'm1',
+      status: 'falta',
+      grade_id: `g-${i}`
+    }));
+
+    const resumos = buildFaltasResumosForMaterias(materias, grade, ocorrencias);
+    assert.equal(resumos.length, 2);
+    assert.equal(resumos[0].materiaId, 'm1');
+    assert.equal(resumos[0].faltasContabilizadas, 14);
+    assert.equal(resumos[0].faltasAindaPermitidasSemReprovar, 0);
+    assert.equal(resumos[1].materiaId, 'm2');
+    assert.equal(resumos[1].situacao, 'indeterminado');
   });
 });

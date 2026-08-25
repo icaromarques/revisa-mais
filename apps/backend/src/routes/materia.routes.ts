@@ -9,6 +9,7 @@ router.use(requireAuth);
 
 router.post('/', materiaController.createMateria);
 router.get('/', materiaController.getMaterias);
+router.get('/faltas-resumos', materiaController.getFaltasResumos);
 router.get('/:id/aulas', materiaController.getAulasByMateria);
 router.get('/:id/faltas-resumo', materiaController.getFaltasResumo);
 router.get('/:id', materiaController.getMateriaById);

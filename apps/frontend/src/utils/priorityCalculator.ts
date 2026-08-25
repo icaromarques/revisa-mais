@@ -1,7 +1,7 @@
 import { OcorrenciaGrade } from '@/types/availability';
 import { EventoAcademico } from '@/types/calendar';
-import { calcularResumoFaltas, analisarLimiteDeFaltas } from './faltasCalculator';
-import { differenceInDays, differenceInWeeks } from 'date-fns';
+import { differenceInDays } from 'date-fns';
+import { FaltasResumoApi, situacaoToRiskStatus } from '@/types/faltas';
 
 interface PriorityResult {
   level: "baixa" | "media" | "alta" | "critica";
@@ -18,6 +18,7 @@ interface PriorityParams {
   topicos?: any[];
   notas?: any[];
   totalClassesExpected?: number;
+  faltasResumo?: FaltasResumoApi | null;
 }
 
 export function calculateSubjectPriority({
@@ -28,7 +29,8 @@ export function calculateSubjectPriority({
   sessoes = [],
   topicos = [],
   notas = [],
-  totalClassesExpected = 0
+  totalClassesExpected = 0,
+  faltasResumo = null
 }: PriorityParams): PriorityResult {
   let score = 0;
   const reasons: string[] = [];
@@ -64,19 +66,22 @@ export function calculateSubjectPriority({
     reasons.push(`${atrasadas.length} revisão(ões) pontual atrasada(s)`);
   }
 
-  // 5. Faltas e Risco
-  if (ocorrencias.length > 0 && materia.limite_faltas_percentual && totalClassesExpected > 0) {
-    const resumoFaltas = calcularResumoFaltas(ocorrencias);
-    const analise = analisarLimiteDeFaltas(totalClassesExpected, materia.limite_faltas_percentual, resumoFaltas);
-    if (analise) {
-      if (analise.riskStatus === 'critical') {
-        score += 30;
-        reasons.push('Risco CRÍTICO de reprovação por falta');
-      } else if (analise.riskStatus === 'warning') {
-        score += 15;
-        reasons.push('Limites de faltas em estado de alerta');
-      }
+  // 5. Faltas e Risco — backend resumo when available
+  if (faltasResumo && faltasResumo.situacao !== 'indeterminado') {
+    const riskStatus = situacaoToRiskStatus(faltasResumo.situacao);
+    if (riskStatus === 'critical') {
+      score += 30;
+      reasons.push(
+        faltasResumo.situacao === 'reprovado_limite'
+          ? 'Reprovado por limite de faltas'
+          : 'Risco CRÍTICO de reprovação por falta'
+      );
+    } else if (riskStatus === 'warning') {
+      score += 15;
+      reasons.push('Limites de faltas em estado de alerta');
     }
+  } else if (totalClassesExpected > 0) {
+    // Legacy path avoided — no academic recalculation without backend resumo
   }
 
   // 6. Pendências de reposição

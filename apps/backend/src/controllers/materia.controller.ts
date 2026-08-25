@@ -133,6 +133,23 @@ export const materiaController = {
     }
   },
 
+  async getFaltasResumos(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const resumos = await faltasService.getFaltasResumosForUser(userId);
+
+      res.json(
+        resumos.map(({ materiaId, ...resumo }) => ({
+          materia_id: materiaId,
+          ...(toSnakeCase(resumo) as Record<string, unknown>)
+        }))
+      );
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao calcular resumos de faltas' });
+    }
+  },
+
   // Deletar Matéria (A cascata do Prisma excluirá Tópicos, Revisões, Flashcards e Faltas ligados a ela)
   async getAulasByMateria(req: Request, res: Response) {
     try {

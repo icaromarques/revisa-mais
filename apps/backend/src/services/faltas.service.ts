@@ -154,7 +154,7 @@ function isFaltaStatus(status: string): boolean {
  */
 export function countFaltaUnits(oc: OcorrenciaInput): number {
   if (!isFaltaStatus(oc.status)) return 0;
-  if (getTipoFalta(oc) === 'com_atestado') return 0;
+  if (getTipoFalta(oc) === 'com_atestado') return 0; // Policy: excluded from limit; may become configurable later.
   if (getGradeId(oc)) return 1;
   const qtd = oc.quantidadeOcorrencias ?? oc.quantidade_ocorrencias ?? 1;
   return Math.max(0, Number(qtd) || 0);
@@ -245,6 +245,68 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+export interface MateriaFaltasInput {
+  id: string;
+  periodoInicio?: Date | string | null;
+  periodoFim?: Date | string | null;
+  limiteFaltasPercentual?: number | null;
+}
+
+export interface FaltasResumoWithMateriaId extends FaltasResumo {
+  materiaId: string;
+}
+
+export function buildFaltasResumoForMateria(
+  materia: MateriaFaltasInput,
+  gradeRows: GradeSlotInput[],
+  ocorrencias: OcorrenciaInput[]
+): FaltasResumo {
+  const inicio = materia.periodoInicio;
+  const fim = materia.periodoFim;
+  const totalAulasPrevistas =
+    inicio && fim
+      ? calculateTotalExpectedOccurrences(gradeRows, inicio, fim)
+      : 0;
+
+  return buildFaltasResumo(
+    totalAulasPrevistas,
+    materia.limiteFaltasPercentual,
+    ocorrencias
+  );
+}
+
+function groupByMateriaId<T extends { materiaId?: string | null; materia_id?: string | null }>(
+  rows: T[]
+): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const row of rows) {
+    const materiaId = row.materiaId ?? row.materia_id;
+    if (!materiaId) continue;
+    const list = map.get(materiaId) ?? [];
+    list.push(row);
+    map.set(materiaId, list);
+  }
+  return map;
+}
+
+export function buildFaltasResumosForMaterias(
+  materias: MateriaFaltasInput[],
+  gradeRows: Array<GradeSlotInput & { materiaId?: string | null; materia_id?: string | null }>,
+  ocorrencias: Array<OcorrenciaInput & { materiaId?: string | null; materia_id?: string | null }>
+): FaltasResumoWithMateriaId[] {
+  const gradesByMateria = groupByMateriaId(gradeRows);
+  const ocorrenciasByMateria = groupByMateriaId(ocorrencias);
+
+  return materias.map((materia) => ({
+    materiaId: materia.id,
+    ...buildFaltasResumoForMateria(
+      materia,
+      gradesByMateria.get(materia.id) ?? [],
+      ocorrenciasByMateria.get(materia.id) ?? []
+    )
+  }));
+}
+
 export const faltasService = {
   async getFaltasResumoForMateria(userId: string, materiaId: string): Promise<FaltasResumo | null> {
     const materia = await prisma.materia.findFirst({
@@ -261,17 +323,32 @@ export const faltasService = {
       })
     ]);
 
-    const inicio = materia.periodoInicio;
-    const fim = materia.periodoFim;
-    const totalAulasPrevistas =
-      inicio && fim
-        ? calculateTotalExpectedOccurrences(gradeRows, inicio, fim)
-        : 0;
+    return buildFaltasResumoForMateria(materia, gradeRows, ocorrencias);
+  },
 
-    return buildFaltasResumo(
-      totalAulasPrevistas,
-      materia.limiteFaltasPercentual,
-      ocorrencias
-    );
+  async getFaltasResumosForUser(userId: string): Promise<FaltasResumoWithMateriaId[]> {
+    const materias = await prisma.materia.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        periodoInicio: true,
+        periodoFim: true,
+        limiteFaltasPercentual: true
+      }
+    });
+
+    if (materias.length === 0) return [];
+
+    const materiaIds = materias.map((m) => m.id);
+    const [gradeRows, ocorrencias] = await Promise.all([
+      prisma.gradeFaculdade.findMany({
+        where: { userId, materiaId: { in: materiaIds }, ativo: true }
+      }),
+      prisma.ocorrenciaGrade.findMany({
+        where: { userId, materiaId: { in: materiaIds } }
+      })
+    ]);
+
+    return buildFaltasResumosForMaterias(materias, gradeRows, ocorrencias);
   }
 };
