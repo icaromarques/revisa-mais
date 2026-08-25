@@ -1,29 +1,15 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
+import { mapGrade } from '../mappers/grade.mapper';
+import { buildMateriaData } from '../mappers/materia.mapper';
 import { faltasService } from '../services/faltas.service';
+import {
+  MateriaGradeValidationError,
+  materiaGradeService,
+  parseGradeSlotsFromBody,
+  parseMateriaBodyFromRequest
+} from '../services/materiaGrade.service';
 import { asString, bodyField, parseDate, toSnakeCase } from '../utils/responseMapper';
-
-function buildMateriaData(userId: string, body: Record<string, unknown>) {
-  return {
-    userId,
-    nome: String(bodyField(body, 'nome') || ''),
-    cor: String(bodyField(body, 'cor') || 'roxo'),
-    descricao: bodyField<string>(body, 'descricao') || null,
-    professor: bodyField<string>(body, 'professor') || null,
-    prioridade: bodyField<string>(body, 'prioridade') || null,
-    metaSemanalHoras: bodyField<number>(body, 'metaSemanalHoras', 'meta_semanal_horas') ?? null,
-    pesoImportancia: bodyField<string>(body, 'pesoImportancia', 'peso_importancia') || null,
-    status: bodyField<string>(body, 'status') || 'em_andamento',
-    periodoInicio: parseDate(bodyField(body, 'periodoInicio', 'periodo_inicio')),
-    periodoFim: parseDate(bodyField(body, 'periodoFim', 'periodo_fim')),
-    tipoPeriodo: bodyField<string>(body, 'tipoPeriodo', 'tipo_periodo') || null,
-    numeroPeriodo: bodyField<number>(body, 'numeroPeriodo', 'numero_periodo') ?? null,
-    limiteFaltasPercentual: bodyField<number>(body, 'limiteFaltasPercentual', 'limite_faltas_percentual') ?? null,
-    revisaoAutomaticaAtiva: bodyField<boolean>(body, 'revisaoAutomaticaAtiva', 'revisao_automatica_ativa') ?? true,
-    exibirNoCalendario: bodyField<boolean>(body, 'exibirNoCalendario', 'exibir_no_calendario') ?? true,
-    iaHabilitada: bodyField<boolean>(body, 'iaHabilitada', 'ia_habilitada') ?? false
-  };
-}
 
 export const materiaController = {
   async createMateria(req: Request, res: Response) {
@@ -39,6 +25,26 @@ export const materiaController = {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Erro ao criar matéria' });
+    }
+  },
+
+  async createMateriaWithGrade(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const materiaBody = parseMateriaBodyFromRequest(req.body as Record<string, unknown>);
+      const slots = parseGradeSlotsFromBody(req.body as Record<string, unknown>);
+      const result = await materiaGradeService.createMateriaWithGrade(userId, materiaBody, slots);
+
+      res.status(201).json({
+        materia: result.materia,
+        grade: result.grade.map(mapGrade)
+      });
+    } catch (error) {
+      if (error instanceof MateriaGradeValidationError) {
+        return res.status(error.statusCode).json({ error: error.message });
+      }
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao criar matéria com grade' });
     }
   },
 

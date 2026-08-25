@@ -8,6 +8,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.post('/', materiaController.createMateria);
+router.post('/com-grade', materiaController.createMateriaWithGrade);
 router.get('/', materiaController.getMaterias);
 router.get('/faltas-resumos', materiaController.getFaltasResumos);
 router.get('/:id/aulas', materiaController.getAulasByMateria);
