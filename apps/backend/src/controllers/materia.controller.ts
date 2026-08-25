@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
-import { asString, bodyField, parseDate } from '../utils/responseMapper';
+import { faltasService } from '../services/faltas.service';
+import { asString, bodyField, parseDate, toSnakeCase } from '../utils/responseMapper';
 
 function buildMateriaData(userId: string, body: Record<string, unknown>) {
   return {
@@ -113,6 +114,23 @@ export const materiaController = {
 
   async patchMateria(req: Request, res: Response) {
     return materiaController.updateMateria(req, res);
+  },
+
+  async getFaltasResumo(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const id = asString(req.params.id);
+
+      const resumo = await faltasService.getFaltasResumoForMateria(userId, id);
+      if (!resumo) {
+        return res.status(404).json({ error: 'Matéria não encontrada' });
+      }
+
+      res.json(toSnakeCase(resumo));
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Erro ao calcular resumo de faltas' });
+    }
   },
 
   // Deletar Matéria (A cascata do Prisma excluirá Tópicos, Revisões, Flashcards e Faltas ligados a ela)

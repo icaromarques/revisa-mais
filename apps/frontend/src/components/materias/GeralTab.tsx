@@ -14,9 +14,25 @@ import { calcularResumoFaltas, analisarLimiteDeFaltas } from '@/utils/faltasCalc
 import { calculateSubjectPriority } from '@/utils/priorityCalculator';
 import { getCalendarRenderKey } from '@/lib/calendar-utils';
 
+interface FaltasResumoApi {
+  total_aulas_previstas: number;
+  total_previsto_bruto?: boolean;
+  total_previsto_nota?: string;
+  faltas_contabilizadas: number;
+  percentual_faltas: number | null;
+  limite_percentual: number | null;
+  minimo_faltas_para_reprovar: number | null;
+  maximo_faltas_sem_reprovar: number | null;
+  faltas_ainda_permitidas_sem_reprovar: number | null;
+  percentual_do_limite_consumido: number | null;
+  situacao: 'indeterminado' | 'seguro' | 'atencao' | 'critico' | 'reprovado_limite';
+  reprovado_por_limite?: boolean;
+}
+
 interface GeralTabProps {
   materia: any;
   grade?: any[];
+  faltasResumo?: FaltasResumoApi | null;
   topicos: any[];
   aulas: any[];
   revisoes: any[];
@@ -50,6 +66,7 @@ interface GeralTabProps {
 export function GeralTab({
   materia,
   grade = [],
+  faltasResumo = null,
   topicos,
   aulas,
   revisoes,
@@ -102,28 +119,43 @@ export function GeralTab({
       .sort((a,b) => parseValidDate(a.data_prevista).getTime() - parseValidDate(b.data_prevista).getTime());
     const nextReview = upcomingReviews[0];
     
-    // Faltas
+    // Faltas — prefer backend resumo when available
     const resumoFaltas = calcularResumoFaltas(ocorrencias);
-    const faltasCount = resumoFaltas.faltasParaLimite;
+    const faltasCount = faltasResumo?.faltas_contabilizadas ?? resumoFaltas.faltasParaLimite;
     const reposicaoPendente = resumoFaltas.pendentesReposicao;
     const conteudosRecuperados = resumoFaltas.conteudosRecuperados;
     const totalFaltasRegistradas = resumoFaltas.totalRegistrado;
     
-    // Período e Limite
-    let totalClassesExpected = 0;
-    let limiteFaltas = 0;
-    let faltasUsadasPercentual = 0;
+    let totalClassesExpected = faltasResumo?.total_aulas_previstas ?? 0;
+    let limiteFaltas = faltasResumo?.maximo_faltas_sem_reprovar ?? 0;
+    let percentualFaltasReal = faltasResumo?.percentual_faltas ?? null;
+    let percentualLimiteConsumido = faltasResumo?.percentual_do_limite_consumido ?? null;
+    let faltasRestantes = faltasResumo?.faltas_ainda_permitidas_sem_reprovar ?? 0;
+    let reprovadoPorLimite = faltasResumo?.reprovado_por_limite ?? false;
     let riskStatus: 'safe'|'warning'|'critical' = 'safe';
-    let faltasRestantes = 0;
-    
-    if (materia.periodo_inicio && materia.periodo_fim && grade.length > 0) {
+
+    if (faltasResumo) {
+      if (faltasResumo.situacao === 'reprovado_limite' || faltasResumo.reprovado_por_limite) {
+        riskStatus = 'critical';
+      } else if (faltasResumo.situacao === 'critico') {
+        riskStatus = 'critical';
+      } else if (faltasResumo.situacao === 'atencao') {
+        riskStatus = 'warning';
+      }
+      if (faltasResumo.maximo_faltas_sem_reprovar != null) {
+        limiteFaltas = faltasResumo.maximo_faltas_sem_reprovar;
+      }
+    } else if (materia.periodo_inicio && materia.periodo_fim && grade.length > 0) {
       totalClassesExpected = calculateTotalExpectedOccurrences(grade, materia.periodo_inicio, materia.periodo_fim);
       const analiseLimite = analisarLimiteDeFaltas(totalClassesExpected, materia.limite_faltas_percentual, resumoFaltas);
       if (analiseLimite) {
          limiteFaltas = analiseLimite.limitePermitido;
-         faltasUsadasPercentual = analiseLimite.percentualUsado;
+         percentualLimiteConsumido = analiseLimite.percentualUsado;
          riskStatus = analiseLimite.riskStatus;
          faltasRestantes = analiseLimite.faltasRestantes;
+         percentualFaltasReal = totalClassesExpected > 0
+           ? Math.round((faltasCount / totalClassesExpected) * 10000) / 100
+           : null;
       }
     }
     
@@ -147,7 +179,10 @@ export function GeralTab({
       conteudosRecuperados,
       totalClassesExpected,
       limiteFaltas,
-      faltasUsadasPercentual,
+      faltasUsadasPercentual: percentualLimiteConsumido ?? 0,
+      percentualFaltasReal,
+      percentualLimiteConsumido,
+      reprovadoPorLimite,
       riskStatus,
       faltasRestantes,
       mediaAtual,
@@ -158,7 +193,7 @@ export function GeralTab({
       totalFaltasRegistradas,
       resumoFaltas
     };
-  }, [aulas, events, revisoes, ocorrencias, notas, sessoes, materia, grade]);
+  }, [aulas, events, revisoes, ocorrencias, notas, sessoes, materia, grade, faltasResumo]);
 
   // Calculo de prioridade
   const priorityInfo = useMemo(() => {
@@ -281,14 +316,25 @@ export function GeralTab({
       });
     }
 
-    if (resumoEstrategico.riskStatus === 'critical') {
+    if (resumoEstrategico.reprovadoPorLimite) {
+      list.push({
+        id: 'faltas-reprovado-limite',
+        type: 'error',
+        icon: <AlertCircle className="w-4 h-4" />,
+        title: 'Limite de faltas atingido',
+        desc: `Você atingiu ${resumoEstrategico.percentualFaltasReal ?? resumoEstrategico.faltasUsadasPercentual}% de faltas (limite: ${materia.limite_faltas_percentual}%).`,
+        action: null
+      });
+    } else if (resumoEstrategico.riskStatus === 'critical') {
       const restam = resumoEstrategico.faltasRestantes;
       list.push({
         id: 'faltas-risco-critico',
         type: 'error',
         icon: <AlertCircle className="w-4 h-4" />,
         title: `Risco Crítico por Faltas`,
-        desc: restam <= 0 ? 'Você atingiu ou ultrapassou o limite de faltas.' : `Você já usou ${Math.round(resumoEstrategico.faltasUsadasPercentual)}% do limite. Restam apenas ${restam} falta(s).`,
+        desc: restam <= 0
+          ? 'Você atingiu o máximo de faltas permitidas antes da reprovação.'
+          : `Você consumiu ${Math.round(resumoEstrategico.faltasUsadasPercentual ?? 0)}% do limite. Restam apenas ${restam} falta(s).`,
         action: null
       });
     } else if (resumoEstrategico.riskStatus === 'warning') {
@@ -568,37 +614,53 @@ export function GeralTab({
         <div className={`relative group glass-panel p-4 rounded-2xl border-outline/10 flex flex-col justify-center min-h-[100px] ${resumoEstrategico.riskStatus === 'critical' ? 'bg-error/5 border-error/20 ring-1 ring-error/20' : resumoEstrategico.riskStatus === 'warning' ? 'bg-warning/5 border-warning/20 ring-1 ring-warning/20' : ''}`}>
           <span className="text-[10px] font-black uppercase tracking-widest text-outline mb-2 text-center">Faltas</span>
           
-          {resumoEstrategico.limiteFaltas > 0 ? (
+          {(resumoEstrategico.totalClassesExpected > 0 && materia.limite_faltas_percentual) || resumoEstrategico.limiteFaltas > 0 ? (
             <div className="flex flex-col items-center gap-1.5 w-full">
                <span className={`text-xl font-black leading-none ${resumoEstrategico.riskStatus === 'critical' ? 'text-error' : resumoEstrategico.riskStatus === 'warning' ? 'text-warning' : 'text-on-surface'}`}>
-                  {resumoEstrategico.faltasCount} <span className="text-sm font-bold text-on-surface-variant">de {resumoEstrategico.limiteFaltas} usadas</span>
+                  {resumoEstrategico.faltasCount}
+                  {resumoEstrategico.totalClassesExpected > 0 ? (
+                    <span className="text-sm font-bold text-on-surface-variant"> / {resumoEstrategico.totalClassesExpected} aulas</span>
+                  ) : (
+                    <span className="text-sm font-bold text-on-surface-variant"> de {resumoEstrategico.limiteFaltas} usadas</span>
+                  )}
                </span>
+               {resumoEstrategico.percentualFaltasReal != null && (
+                 <span className="text-[10px] font-bold text-on-surface-variant">
+                   {resumoEstrategico.percentualFaltasReal}% de faltas (limite {materia.limite_faltas_percentual}%)
+                 </span>
+               )}
                <span className="text-[10px] font-bold text-on-surface">
-                  {resumoEstrategico.faltasRestantes} faltas restantes
+                  {resumoEstrategico.reprovadoPorLimite
+                    ? 'Reprovado por limite de faltas'
+                    : `${resumoEstrategico.faltasRestantes} falta(s) ainda permitidas`}
                </span>
                
                <div className="w-full flex flex-col gap-1 mt-1">
                  <div className="flex justify-between items-center text-[9px] font-bold">
-                    <span className="text-on-surface-variant font-mono">{Math.round(resumoEstrategico.faltasUsadasPercentual)}% usado</span>
+                    <span className="text-on-surface-variant font-mono">
+                      {Math.round(resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0)}% do limite consumido
+                    </span>
                     <span className={
+                       resumoEstrategico.reprovadoPorLimite ? "text-error uppercase" :
                        resumoEstrategico.faltasCount === 0 ? "text-on-surface-variant" :
-                       resumoEstrategico.faltasUsadasPercentual <= 50 ? "text-success" :
-                       resumoEstrategico.faltasUsadasPercentual < 80 ? "text-warning" :
-                       resumoEstrategico.faltasUsadasPercentual < 100 ? "text-error" : "text-error uppercase"
+                       (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) <= 50 ? "text-success" :
+                       (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) < 80 ? "text-warning" :
+                       "text-error"
                     }>
-                       {resumoEstrategico.faltasCount === 0 ? "Nenhuma falta registrada" :
-                        resumoEstrategico.faltasUsadasPercentual <= 50 ? "Dentro do limite" :
-                        resumoEstrategico.faltasUsadasPercentual < 80 ? "Atenção: acompanhe suas faltas" :
-                        resumoEstrategico.faltasUsadasPercentual < 100 ? "Risco alto de atingir o limite" :
-                        "Limite atingido/ultrapassado"}
+                       {resumoEstrategico.reprovadoPorLimite ? "Limite atingido" :
+                        resumoEstrategico.faltasCount === 0 ? "Nenhuma falta registrada" :
+                        (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) <= 50 ? "Dentro do limite" :
+                        (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) < 80 ? "Atenção: acompanhe suas faltas" :
+                        "Risco alto de atingir o limite"}
                     </span>
                  </div>
                  <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
                     <div className={`h-full rounded-full transition-all duration-1000 ${
-                       resumoEstrategico.faltasUsadasPercentual <= 50 ? "bg-success" :
-                       resumoEstrategico.faltasUsadasPercentual < 80 ? "bg-warning" :
+                       resumoEstrategico.reprovadoPorLimite ? "bg-error shadow-[0_0_8px_rgba(255,0,0,0.5)]" :
+                       (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) <= 50 ? "bg-success" :
+                       (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) < 80 ? "bg-warning" :
                        "bg-error shadow-[0_0_8px_rgba(255,0,0,0.5)]"
-                    }`} style={{ width: `${Math.min(resumoEstrategico.faltasUsadasPercentual, 100)}%` }} />
+                    }`} style={{ width: `${Math.min(resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0, 100)}%` }} />
                  </div>
                </div>
             </div>

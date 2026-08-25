@@ -27,10 +27,6 @@ export const gradeOccurrenceService = {
        const { data: occurrences } = await apiClient.get(`/ocorrencias?data=${dateStr}`);
        const existingOccurrences = occurrences || [];
 
-       // 3. Fetch classes registered for this date to auto-resolve
-       const { data: classes } = await apiClient.get(`/aulas?data=${dateStr}`);
-       const existingClasses = classes || [];
-
        let createdCount = 0;
        const now = new Date();
 
@@ -53,19 +49,14 @@ export const gradeOccurrenceService = {
          const alreadyExists = existingOccurrences.find((o: any) => o.grade_id === grade.id);
          if (alreadyExists) continue;
 
-         // Check if there's a class for this materia today (more strictly)
-         // Any class for the same subject on the same day can be considered a resolution
-         const matchingClass = existingClasses.find((c: any) => c.materia_id === grade.materia_id);
-         
-         const status: StatusOcorrencia = matchingClass ? 'resolvida_por_aula_existente' : 'pendente_confirmacao';
-         
+         // Do not auto-resolve by materia_id alone — multiple slots/day need explicit confirmation.
          await apiClient.post('/ocorrencias', {
            grade_id: grade.id,
            materia_id: grade.materia_id || '',
            data: dateStr,
-           status,
-           aula_id: matchingClass?.id || null,
-           criado_por_robo: true
+           status: 'pendente_confirmacao' as StatusOcorrencia,
+           origem: 'automatica',
+           aula_id: null
          });
          createdCount++;
        }

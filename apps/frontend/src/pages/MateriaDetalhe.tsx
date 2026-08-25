@@ -51,6 +51,7 @@ export function MateriaDetalhe() {
   const [materiais, setMateriais] = useState<any[]>([]);
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [grade, setGrade] = useState<any[]>([]);
+  const [faltasResumo, setFaltasResumo] = useState<any>(null);
   const [resumos, setResumos] = useState<any[]>([]);
   const [decks, setDecks] = useState<any[]>([]);
   const [cadernos, setCadernos] = useState<any[]>([]);
@@ -188,6 +189,23 @@ export function MateriaDetalhe() {
       try { aulasData = (await apiClient.get(`/aulas?materia_id=${id}`)).data; } catch(e) { console.warn('Aulas error', e); }
       try { eventosData = await calendarService.fetchUserEvents(user.id); } catch(e) { console.warn('Events error', e); }
 
+      let ocorrenciasData: any[] = [];
+      let gradeData: any[] = [];
+      let faltasResumoData = null;
+
+      try {
+        const [{ data: ocs }, { data: grd }, { data: resumo }] = await Promise.all([
+          apiClient.get(`/ocorrencias?materia_id=${id}`),
+          apiClient.get(`/disponibilidade/grade_faculdade?materia_id=${id}`),
+          apiClient.get(`/materias/${id}/faltas-resumo`)
+        ]);
+        ocorrenciasData = ocs || [];
+        gradeData = (grd || []).filter((g: any) => g.ativo !== false);
+        faltasResumoData = resumo;
+      } catch (e) {
+        console.warn('Faltas/grade load error', e);
+      }
+
       setMateria(materiaData);
       setTopicos(topicosData || []);
       setSessoes(sessoesData || []);
@@ -197,12 +215,11 @@ export function MateriaDetalhe() {
       const validEvents = (eventosData || []).filter((e: any) => e.materia_id === id && e.data_inicio && !isNaN(parseValidDate(e.data_inicio).getTime()));
       setEvents(validEvents);
       
-      // Since some endpoints don't exist yet, we mock them empty here 
-      // instead of reading directly from Firebase to avoid breaking the build.
       setNotas([]);
       setMateriais([]);
-      setOcorrencias([]);
-      setGrade([]);
+      setOcorrencias(ocorrenciasData.map((d: any) => integrityService.normalizeAbsence(d)));
+      setGrade(gradeData);
+      setFaltasResumo(faltasResumoData);
 
     } catch (error) {
        console.error("Error fetching data for materia detalhe", error);
@@ -478,6 +495,7 @@ const delayedReviews = revisoes.filter(r => r.status === 'pendente' && isValidDa
             <GeralTab 
               materia={materia}
               grade={grade}
+              faltasResumo={faltasResumo}
               topicos={topicos}
               aulas={aulas}
               revisoes={revisoes}
