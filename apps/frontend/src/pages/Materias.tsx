@@ -17,6 +17,17 @@ import { calculateSubjectPriority } from '@/utils/priorityCalculator';
 import { apiClient } from '@/lib/api';
 import { fetchFaltasResumos } from '@/services/faltasService';
 import { FaltasResumoApi, faltasResumosToMap, situacaoToRiskStatus } from '@/types/faltas';
+import { MateriaComGradeForm } from '@/components/materias/form';
+import type {
+  MateriaComGradeFormState,
+  MateriaComGradeFormValidationResult
+} from '@/types/materiaComGradeForm';
+import {
+  createDefaultMateriaComGradeFormState,
+  executeCreateMateriaWithGradeFlow,
+  type RetroFaltaDetalhe,
+  type RetroFaltasPlan
+} from '@/utils/materiaComGrade';
 
 export { calculateSubjectPriority };
 
@@ -33,13 +44,18 @@ export function Materias() {
   const [events, setEvents] = useState<EventoAcademico[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMateria, setEditingMateria] = useState<any>(null);
-  
-  // Modal States
+
+  // --- CREATE mode (1C.3): shared Materia + Grade form ---
+  const [createForm, setCreateForm] = useState<MateriaComGradeFormState>(createDefaultMateriaComGradeFormState);
+  const [createValidation, setCreateValidation] = useState<MateriaComGradeFormValidationResult | undefined>();
+  const [showCreateValidation, setShowCreateValidation] = useState(false);
+
+  // --- EDIT mode (legacy, not migrated in 1C.3) ---
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
   const [professor, setProfessor] = useState('');
   const [cor, setCor] = useState('bg-primary');
-  const [prioridade, setPrioridade] = useState('Média'); 
+  const [prioridade, setPrioridade] = useState('Média');
   const [metaSemanalHoras, setMetaSemanalHoras] = useState<number | ''>('');
   const [pesoImportancia, setPesoImportancia] = useState('Médio');
   const [status, setStatus] = useState('em_andamento');
@@ -50,26 +66,15 @@ export function Materias() {
   const [limiteFaltasPercentual, setLimiteFaltasPercentual] = useState<number | ''>('');
   const [revisaoAutomaticaAtiva, setRevisaoAutomaticaAtiva] = useState(true);
   const [exibirNoCalendario, setExibirNoCalendario] = useState(true);
-  const [criarEstruturaInicial, setCriarEstruturaInicial] = useState(true);
   const [iaHabilitada, setIaHabilitada] = useState(false);
 
-  // Faltas retroativas states
+  // Faltas retroativas (CREATE only — complementary to MateriaComGradeForm)
   const [retroFaltasOption, setRetroFaltasOption] = useState<'none' | 'quantidade' | 'detalhado'>('none');
   const [retroFaltasQuant, setRetroFaltasQuant] = useState<number | ''>('');
-  const [retroFaltasLista, setRetroFaltasLista] = useState<{data: string, quantidade: number, tipo_falta: string, observacoes: string, status_reposicao: string}[]>([]);
-  
-  // Grade fields
-  const [criarGrade, setCriarGrade] = useState(false);
-  const [gradeDias, setGradeDias] = useState<number[]>([1]);
-  const [gradeHoraInicio, setGradeHoraInicio] = useState('08:00');
-  const [gradeHoraFim, setGradeHoraFim] = useState('10:00');
-  const [gradeCor, setGradeCor] = useState('');
-  const [gradeRecorrente, setGradeRecorrente] = useState(true);
-  const [gradeDataEspecifica, setGradeDataEspecifica] = useState('');
-  const [gradeLocal, setGradeLocal] = useState('');
+  const [retroFaltasLista, setRetroFaltasLista] = useState<RetroFaltaDetalhe[]>([]);
 
   const [nomeError, setNomeError] = useState('');
-  
+
   const [loading, setLoading] = useState(false);
   
   // Delete confirm modal
@@ -136,6 +141,16 @@ export function Materias() {
     };
   }, [user]);
 
+  const resetCreateForm = () => {
+    setCreateForm(createDefaultMateriaComGradeFormState());
+    setCreateValidation(undefined);
+    setShowCreateValidation(false);
+    setRetroFaltasOption('none');
+    setRetroFaltasQuant('');
+    setRetroFaltasLista([]);
+    setNomeError('');
+  };
+
   const openEditModal = (materia: any) => {
     setEditingMateria(materia);
     setNome(materia.nome);
@@ -143,18 +158,17 @@ export function Materias() {
     setProfessor(materia.professor || '');
     setCor(materia.cor || 'bg-primary');
     setPrioridade(materia.prioridade || 'Média');
-    setMetaSemanalHoras(materia.meta_semanal_horas || '');
-    setPesoImportancia(materia.peso_importancia || 'Médio');
+    setMetaSemanalHoras(materia.meta_semanal_horas || materia.metaSemanalHoras || '');
+    setPesoImportancia(materia.peso_importancia || materia.pesoImportancia || 'Médio');
     setStatus(materia.status || 'em_andamento');
-    setPeriodoInicio(materia.periodo_inicio || '');
-    setPeriodoFim(materia.periodo_fim || '');
-    setTipoPeriodo(materia.tipo_periodo || 'semestre');
-    setNumeroPeriodo(materia.numero_periodo || '');
-    setLimiteFaltasPercentual(materia.limite_faltas_percentual || '');
-    setRevisaoAutomaticaAtiva(materia.revisao_automatica_ativa ?? true);
-    setExibirNoCalendario(materia.exibir_no_calendario ?? true);
-    setCriarEstruturaInicial(false); // only on create
-    setIaHabilitada(materia.ia_habilitada ?? false);
+    setPeriodoInicio(materia.periodo_inicio || materia.periodoInicio || '');
+    setPeriodoFim(materia.periodo_fim || materia.periodoFim || '');
+    setTipoPeriodo(materia.tipo_periodo || materia.tipoPeriodo || 'semestre');
+    setNumeroPeriodo(materia.numero_periodo || materia.numeroPeriodo || '');
+    setLimiteFaltasPercentual(materia.limite_faltas_percentual || materia.limiteFaltasPercentual || '');
+    setRevisaoAutomaticaAtiva(materia.revisao_automatica_ativa ?? materia.revisaoAutomaticaAtiva ?? true);
+    setExibirNoCalendario(materia.exibir_no_calendario ?? materia.exibirNoCalendario ?? true);
+    setIaHabilitada(materia.ia_habilitada ?? materia.iaHabilitada ?? false);
     setNomeError('');
     setIsModalOpen(true);
     setOpenMenuId(null);
@@ -162,154 +176,153 @@ export function Materias() {
 
   const openNewModal = () => {
     setEditingMateria(null);
-    setNome('');
-    setDescricao('');
-    setProfessor('');
-    setCor('bg-primary');
-    setPrioridade('Média');
-    setMetaSemanalHoras('');
-    setPesoImportancia('Médio');
-    setStatus('em_andamento');
-    setPeriodoInicio('');
-    setPeriodoFim('');
-    setTipoPeriodo('semestre');
-    setNumeroPeriodo('');
-    setLimiteFaltasPercentual('');
-    setRevisaoAutomaticaAtiva(true);
-    setExibirNoCalendario(true);
-    setCriarEstruturaInicial(true);
-    setIaHabilitada(false);
-    
-    setCriarGrade(false);
-    setGradeDias([1]);
-    setGradeHoraInicio('08:00');
-    setGradeHoraFim('10:00');
-    setGradeCor('');
-    setGradeRecorrente(true);
-    setGradeDataEspecifica('');
-
-    setNomeError('');
+    resetCreateForm();
     setIsModalOpen(true);
+  };
+
+  const buildRetroFaltasPlan = (): RetroFaltasPlan => {
+    if (retroFaltasOption === 'quantidade' && typeof retroFaltasQuant === 'number' && retroFaltasQuant > 0) {
+      return {
+        mode: 'quantidade',
+        quantidade: retroFaltasQuant,
+        data: createForm.periodo.periodo_inicio || new Date().toISOString()
+      };
+    }
+    if (retroFaltasOption === 'detalhado' && retroFaltasLista.length > 0) {
+      return { mode: 'detalhado', items: retroFaltasLista };
+    }
+    return { mode: 'none' };
+  };
+
+  const handleCreateMateria = async () => {
+    if (!user) return;
+
+    setShowCreateValidation(true);
+    setLoading(true);
+    try {
+      const result = await executeCreateMateriaWithGradeFlow({
+        form: createForm,
+        existingNames: materias.map((m) => String(m.nome || '')),
+        createMateriaWithGrade: (payload) => materiaService.createMateriaWithGrade(payload),
+        createOcorrencia: async (body) => {
+          await apiClient.post('/ocorrencias', body);
+        },
+        retroFaltas: buildRetroFaltasPlan()
+      });
+
+      if (result.status === 'validation_error') {
+        setCreateValidation(result.validation);
+        if (result.validation.errors.materia?.nome) {
+          setNomeError(result.validation.errors.materia.nome);
+        }
+        toast.error('Revise os campos destacados antes de salvar.');
+        return;
+      }
+
+      if (result.status === 'duplicate_name') {
+        setNomeError(result.message);
+        setCreateValidation({
+          valid: false,
+          errors: { materia: { nome: result.message } }
+        });
+        toast.error(result.message);
+        return;
+      }
+
+      if (result.status === 'create_error') {
+        console.error('Erro ao criar matéria com grade:', result.error);
+        toast.error('Erro ao criar matéria');
+        return;
+      }
+
+      // Structural success (matéria + grade). Retro faltas may have partially failed.
+      if (result.retroFaltasPartialFailure) {
+        toast.important(
+          'Matéria criada, mas algumas faltas retroativas não puderam ser registradas.'
+        );
+      } else if (result.payload.grade.length > 0) {
+        toast.success('Matéria e horário(s) criados com sucesso!');
+      } else {
+        toast.success('Matéria criada com sucesso');
+      }
+
+      setIsModalOpen(false);
+      setEditingMateria(null);
+      resetCreateForm();
+
+      const res = await apiClient.get('/materias');
+      setMaterias(res.data);
+    } catch (error) {
+      console.error('Erro ao criar matéria:', error);
+      toast.error('Erro ao criar matéria');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    
+
+    // CREATE uses transactional endpoint — do not use POST /materias + separate grade creates.
+    if (!editingMateria) {
+      await handleCreateMateria();
+      return;
+    }
+
+    // EDIT mode — legacy flow (not migrated in 1C.3)
     if (!nome.trim()) {
       setNomeError('O nome da matéria é obrigatório.');
       return;
     }
-    
-    const exists = materias.some(m => m.nome.trim().toLowerCase() === nome.trim().toLowerCase() && m.id !== editingMateria?.id);
+
+    const exists = materias.some(
+      (m) => m.nome.trim().toLowerCase() === nome.trim().toLowerCase() && m.id !== editingMateria?.id
+    );
     if (exists) {
-       setNomeError("Você já tem uma matéria cadastrada com este nome.");
-       return;
+      setNomeError('Você já tem uma matéria cadastrada com este nome.');
+      return;
     }
-    
+
     setNomeError('');
     setLoading(true);
     try {
       const payload = {
-          nome: nome.trim(),
-          descricao: descricao.trim(),
-          professor: professor.trim(),
-          cor: normalizeColorId(cor),
-          prioridade,
-          meta_semanal_horas: metaSemanalHoras === '' ? null : Number(metaSemanalHoras),
-          peso_importancia: pesoImportancia,
-          status,
-          periodo_inicio: periodoInicio || null,
-          periodo_fim: periodoFim || null,
-          tipo_periodo: tipoPeriodo,
-          numero_periodo: numeroPeriodo === '' ? null : Number(numeroPeriodo),
-          limite_faltas_percentual: limiteFaltasPercentual === '' ? null : Number(limiteFaltasPercentual),
-          revisao_automatica_ativa: revisaoAutomaticaAtiva,
-          exibir_no_calendario: exibirNoCalendario,
-          ia_habilitada: iaHabilitada
+        nome: nome.trim(),
+        descricao: descricao.trim(),
+        professor: professor.trim(),
+        cor: normalizeColorId(cor),
+        prioridade,
+        meta_semanal_horas: metaSemanalHoras === '' ? null : Number(metaSemanalHoras),
+        peso_importancia: pesoImportancia,
+        status,
+        periodo_inicio: periodoInicio || null,
+        periodo_fim: periodoFim || null,
+        tipo_periodo: tipoPeriodo,
+        numero_periodo: numeroPeriodo === '' ? null : Number(numeroPeriodo),
+        limite_faltas_percentual: limiteFaltasPercentual === '' ? null : Number(limiteFaltasPercentual),
+        revisao_automatica_ativa: revisaoAutomaticaAtiva,
+        exibir_no_calendario: exibirNoCalendario,
+        ia_habilitada: iaHabilitada
       };
-      
-      let materiaId = editingMateria?.id;
-      
-      if (editingMateria) {
-        await apiClient.put(`/materias/${editingMateria.id}`, payload);
-        
-        // Sync downward (isso deve idealmente ser feito pelo backend via trigger/controller ao salvar matéria)
-        await availabilityService.syncMateriaGradePeriodo(editingMateria.id, user.id, {
-          periodo_inicio: payload.periodo_inicio,
-          periodo_fim: payload.periodo_fim,
-          tipo_periodo: payload.tipo_periodo,
-          limite_faltas_percentual: payload.limite_faltas_percentual
-        });
 
-        toast.success("Matéria atualizada com sucesso");
-      } else {
-        const { data: novaMateria } = await apiClient.post('/materias', payload);
-        materiaId = novaMateria.id;
-        
-        if (retroFaltasOption === 'quantidade' && typeof retroFaltasQuant === 'number' && retroFaltasQuant > 0) {
-           await apiClient.post('/ocorrencias', {
-               materia_id: materiaId,
-               data: payload.periodo_inicio || new Date().toISOString(),
-               status: 'falta',
-               origem: 'retroativa',
-               quantidade_ocorrencias: retroFaltasQuant,
-               tipo_falta: 'comum',
-               status_reposicao: 'pendente',
-               observacoes: 'Faltas retroativas informadas no cadastro da matéria'
-           });
-        } else if (retroFaltasOption === 'detalhado' && retroFaltasLista.length > 0) {
-           for (const falta of retroFaltasLista) {
-              await apiClient.post('/ocorrencias', {
-                  materia_id: materiaId,
-                  data: falta.data || new Date().toISOString(),
-                  status: 'falta',
-                  origem: 'retroativa',
-                  quantidade_ocorrencias: falta.quantidade || 1,
-                  tipo_falta: falta.tipo_falta,
-                  status_reposicao: falta.status_reposicao,
-                  observacoes: falta.observacoes || 'Falta retroativa detalhada'
-              });
-           }
-        }
-        
-        if (criarGrade) {
-           const blockPayload: any = {
-              titulo: payload.nome,
-              materia_id: materiaId,
-              professor: payload.professor,
-              hora_inicio: gradeHoraInicio,
-              hora_fim: gradeHoraFim,
-              local: gradeLocal || null,
-              cor: gradeCor || null, // null means inherit
-              recorrente: gradeRecorrente,
-              dias_semana: gradeRecorrente ? gradeDias : [],
-              data_especifica: gradeRecorrente ? null : gradeDataEspecifica,
-              ativo: true,
-              data_inicio_vigencia: payload.periodo_inicio || null,
-              data_fim_vigencia: payload.periodo_fim || null,
-              periodo_inicio: payload.periodo_inicio || null,
-              periodo_fim: payload.periodo_fim || null,
-              tipo_periodo: payload.tipo_periodo || null,
-              numero_periodo: payload.numero_periodo || null,
-              limite_faltas_percentual: payload.limite_faltas_percentual || null
-           };
-           // clear undefined
-           Object.keys(blockPayload).forEach(key => blockPayload[key] === undefined && delete blockPayload[key]);
-           await availabilityService.createGradeFaculdade(blockPayload);
-           toast.success("Matéria e horário criados com sucesso!");
-        } else {
-           toast.success("Matéria criada com sucesso");
-        }
-      }
+      await apiClient.put(`/materias/${editingMateria.id}`, payload);
+
+      await availabilityService.syncMateriaGradePeriodo(editingMateria.id, user.id, {
+        periodo_inicio: payload.periodo_inicio,
+        periodo_fim: payload.periodo_fim,
+        tipo_periodo: payload.tipo_periodo,
+        limite_faltas_percentual: payload.limite_faltas_percentual
+      });
+
+      toast.success('Matéria atualizada com sucesso');
       setIsModalOpen(false);
       setEditingMateria(null);
-      // Forçar refresh das materias
       const res = await apiClient.get('/materias');
       setMaterias(res.data);
     } catch (error) {
-      console.error("Erro ao salvar matéria:", error);
-      toast.error("Erro ao salvar matéria");
+      console.error('Erro ao salvar matéria:', error);
+      toast.error('Erro ao salvar matéria');
     } finally {
       setLoading(false);
     }
@@ -344,6 +357,20 @@ export function Materias() {
       setDeleting(false);
     }
   };
+
+  const isCreateMode = !editingMateria;
+  const previewNome = isCreateMode ? createForm.materia.nome : nome;
+  const previewCor = isCreateMode ? createForm.materia.cor : cor;
+  const previewPrioridade = isCreateMode ? createForm.materia.prioridade : prioridade;
+  const previewStatus = isCreateMode ? createForm.materia.status : status;
+  const previewDescricao = isCreateMode ? createForm.materia.descricao : descricao;
+  const previewTipoPeriodo = isCreateMode ? createForm.periodo.tipo_periodo : tipoPeriodo;
+  const previewNumeroPeriodo = isCreateMode ? createForm.periodo.numero_periodo : numeroPeriodo;
+  const previewPeriodoInicio = isCreateMode ? createForm.periodo.periodo_inicio : periodoInicio;
+  const previewPeriodoFim = isCreateMode ? createForm.periodo.periodo_fim : periodoFim;
+  const previewMeta = isCreateMode ? createForm.materia.meta_semanal_horas : metaSemanalHoras;
+  const previewPeso = isCreateMode ? createForm.materia.peso_importancia : pesoImportancia;
+  const canSubmit = isCreateMode ? Boolean(createForm.materia.nome.trim()) : Boolean(nome.trim());
 
   return (
     <>
@@ -558,463 +585,403 @@ export function Materias() {
 
             <div className="flex-1 overflow-y-auto min-h-0 flex flex-col lg:flex-row">
               
-              <div className="flex-1 p-6 lg:p-8 space-y-12">
-                
-                {/* BLOCO 2: INFORMAÇÕES BÁSICAS */}
-                <section className="space-y-6">
-                  <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
-                    <LayoutTemplate className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Informações Básicas</h3>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Nome da matéria <span className="text-error">*</span></label>
-                    <input 
-                      autoFocus
-                      type="text" 
-                      value={nome}
-                      onChange={(e) => {
-                        setNome(e.target.value);
-                        if (nomeError) setNomeError('');
+              <div className={`flex-1 p-6 lg:p-8 ${!editingMateria ? 'space-y-8' : 'space-y-12'}`}>
+                {!editingMateria ? (
+                  <>
+                    <MateriaComGradeForm
+                      value={createForm}
+                      onChange={(next) => {
+                        setCreateForm(next);
+                        if (showCreateValidation) {
+                          setCreateValidation(undefined);
+                          setNomeError('');
+                        }
                       }}
-                      className={`w-full bg-surface-container-lowest border ${nomeError ? 'border-error' : 'border-outline'} rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all`}
-                      placeholder="Ex.: Direito Constitucional"
+                      validation={showCreateValidation ? createValidation : undefined}
+                      showValidation={showCreateValidation}
                     />
-                    {nomeError && <p className="text-xs text-error mt-2 flex items-center gap-1"><X className="w-3 h-3"/> {nomeError}</p>}
-                  </div>
 
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">Descrição (Opcional)</label>
-                      <span className="text-[10px] text-on-surface-variant">{descricao.length}/120</span>
-                    </div>
-                    <textarea 
-                      value={descricao}
-                      onChange={(e) => setDescricao(e.target.value.substring(0, 120))}
-                      className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
-                      placeholder="Breve descrição da matéria..."
-                      rows={2}
-                    />
-                  </div>
+                    {createForm.periodo.periodo_inicio && new Date(createForm.periodo.periodo_inicio) < new Date() && (
+                      <section className="space-y-4">
+                        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 space-y-4">
+                          <h4 className="text-sm font-bold text-primary flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4" />
+                            Faltas Anteriores
+                          </h4>
+                          <p className="text-xs text-on-surface-variant">Você já teve faltas nesta matéria antes de começar a usar o Revisa+?</p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Professor / Docente</label>
-                      <input 
-                        type="text" 
-                        value={professor}
-                        onChange={(e) => setProfessor(e.target.value)}
-                        className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                        placeholder="Nome do professor"
-                      />
-                    </div>
-                  </div>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <label className="flex items-center gap-2 text-sm cursor-pointer border border-outline rounded-xl p-3 flex-1">
+                              <input type="radio" value="none" checked={retroFaltasOption === 'none'} onChange={() => setRetroFaltasOption('none')} className="text-primary focus:ring-primary" />
+                              <span>Não tive faltas</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer border border-outline rounded-xl p-3 flex-1">
+                              <input type="radio" value="quantidade" checked={retroFaltasOption === 'quantidade'} onChange={() => setRetroFaltasOption('quantidade')} className="text-primary focus:ring-primary" />
+                              <span>Informar quantidade</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm cursor-pointer border border-outline rounded-xl p-3 flex-1">
+                              <input type="radio" value="detalhado" checked={retroFaltasOption === 'detalhado'} onChange={() => setRetroFaltasOption('detalhado')} className="text-primary focus:ring-primary" />
+                              <span>Registrar por data</span>
+                            </label>
+                          </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Situação Acadêmica</label>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { id: 'em_andamento', label: 'Em andamento' },
-                        { id: 'concluida', label: 'Concluída' },
-                        { id: 'aprovada', label: 'Aprovada' },
-                        { id: 'reprovada', label: 'Reprovada' },
-                        { id: 'trancada', label: 'Trancada' },
-                      ].map(s => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          onClick={() => setStatus(s.id)}
-                          className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full border transition-all ${status === s.id ? (s.id === 'aprovada' ? 'bg-success/20 border-success text-success' : s.id === 'reprovada' ? 'bg-error/20 border-error text-error' : s.id === 'concluida' ? 'bg-tertiary/20 border-tertiary text-tertiary' : s.id === 'trancada' ? 'bg-on-surface-variant/20 border-outline text-on-surface-variant' : 'bg-primary/20 border-primary text-primary') : 'bg-surface-container-lowest border-outline text-on-surface-variant hover:bg-surface-container-highest'}`}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-                
-                {/* BLOCO EXTRA: PERÍODO E FALTAS */}
-                <section className="space-y-6">
-                  <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
-                    <CalendarIcon className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Período Letivo e Faltas (Opcional)</h3>
-                  </div>
+                          {retroFaltasOption === 'quantidade' && (
+                            <div>
+                              <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Quantidade de faltas cadastradas</label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={retroFaltasQuant}
+                                onChange={(e) => setRetroFaltasQuant(e.target.value ? Number(e.target.value) : '')}
+                                className="w-full sm:w-1/2 bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
+                                placeholder="Ex.: 3"
+                              />
+                            </div>
+                          )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Início do Período</label>
-                      <DateInputMasked 
-                        value={periodoInicio}
-                        onValueChange={setPeriodoInicio}
-                        className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Fim do Período</label>
-                      <DateInputMasked 
-                        value={periodoFim}
-                        onValueChange={setPeriodoFim}
-                        className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Tipo de Período</label>
-                      <select
-                        value={tipoPeriodo}
-                        onChange={(e) => setTipoPeriodo(e.target.value)}
-                        className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
-                      >
-                        <option value="bimestre">Bimestre</option>
-                        <option value="trimestre">Trimestre</option>
-                        <option value="semestre">Semestre</option>
-                        <option value="modulo">Módulo</option>
-                        <option value="ano">Ano</option>
-                        <option value="outro">Outro (Livre)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Número do Período</label>
-                      <input 
-                        type="number" 
-                        value={numeroPeriodo}
-                        onChange={(e) => setNumeroPeriodo(e.target.value ? Number(e.target.value) : '')}
-                        className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
-                        placeholder="Ex.: 2"
-                        min="1"
-                        max="20"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Limite de Faltas (%)</label>
-                      <input 
-                        type="number" 
-                        min="0"
-                        max="100"
-                        value={limiteFaltasPercentual}
-                        onChange={(e) => setLimiteFaltasPercentual(e.target.value ? Number(e.target.value) : '')}
-                        className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                        placeholder="Ex.: 25"
-                      />
-                    </div>
-                  </div>
-
-                  {!editingMateria && periodoInicio && new Date(periodoInicio) < new Date() && (
-                    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mt-4 space-y-4">
-                      <h4 className="text-sm font-bold text-primary flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4" />
-                        Faltas Anteriores
-                      </h4>
-                      <p className="text-xs text-on-surface-variant">Você já teve faltas nesta matéria antes de começar a usar o Revisa+?</p>
-                      
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <label className="flex items-center gap-2 text-sm cursor-pointer border border-outline rounded-xl p-3 flex-1">
-                          <input type="radio" value="none" checked={retroFaltasOption === 'none'} onChange={() => setRetroFaltasOption('none')} className="text-primary focus:ring-primary" />
-                          <span>Não tive faltas</span>
-                        </label>
-                        <label className="flex items-center gap-2 text-sm cursor-pointer border border-outline rounded-xl p-3 flex-1">
-                          <input type="radio" value="quantidade" checked={retroFaltasOption === 'quantidade'} onChange={() => setRetroFaltasOption('quantidade')} className="text-primary focus:ring-primary" />
-                          <span>Informar quantidade</span>
-                        </label>
-                        <label className="flex items-center gap-2 text-sm cursor-pointer border border-outline rounded-xl p-3 flex-1">
-                          <input type="radio" value="detalhado" checked={retroFaltasOption === 'detalhado'} onChange={() => setRetroFaltasOption('detalhado')} className="text-primary focus:ring-primary" />
-                          <span>Registrar por data</span>
-                        </label>
+                          {retroFaltasOption === 'detalhado' && (
+                            <div className="space-y-4">
+                              {retroFaltasLista.map((falta, idx) => (
+                                <div key={idx} className="flex flex-col gap-3 p-3 border border-outline rounded-xl bg-surface-container-lowest">
+                                  <div className="flex gap-2">
+                                    <div className="flex-1">
+                                      <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Data</label>
+                                      <input type="date" value={falta.data} onChange={(e) => {
+                                        const n = [...retroFaltasLista]; n[idx].data = e.target.value; setRetroFaltasLista(n);
+                                      }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]" />
+                                    </div>
+                                    <div className="w-20">
+                                      <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Qtd</label>
+                                      <input type="number" min={1} value={falta.quantidade} onChange={(e) => {
+                                        const n = [...retroFaltasLista]; n[idx].quantidade = Number(e.target.value); setRetroFaltasLista(n);
+                                      }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]" />
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <div className="flex-1">
+                                      <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Tipo de Falta</label>
+                                      <select value={falta.tipo_falta} onChange={(e) => {
+                                        const n = [...retroFaltasLista]; n[idx].tipo_falta = e.target.value; setRetroFaltasLista(n);
+                                      }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]">
+                                        <option value="comum">Comum</option>
+                                        <option value="com_atestado">Com Atestado / Justificada</option>
+                                      </select>
+                                    </div>
+                                    <div className="flex-1">
+                                      <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Status Reposição</label>
+                                      <select value={falta.status_reposicao} onChange={(e) => {
+                                        const n = [...retroFaltasLista]; n[idx].status_reposicao = e.target.value; setRetroFaltasLista(n);
+                                      }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]">
+                                        <option value="nao_precisa">Não repor</option>
+                                        <option value="pendente">Repor conteúdo</option>
+                                        <option value="recuperado">Já reposto</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Observações / Conteúdo Perdido</label>
+                                    <input type="text" value={falta.observacoes} onChange={(e) => {
+                                      const n = [...retroFaltasLista]; n[idx].observacoes = e.target.value; setRetroFaltasLista(n);
+                                    }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]" placeholder="Ex.: Atraso por trânsito | Matéria capítulo 3" />
+                                  </div>
+                                  <div className="flex justify-end mt-1">
+                                    <button type="button" onClick={() => setRetroFaltasLista(retroFaltasLista.filter((_, i) => i !== idx))} className="text-[10px] text-error font-medium flex items-center gap-1 hover:underline">
+                                      <Trash2 className="w-3 h-3" /> Remover
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => setRetroFaltasLista([...retroFaltasLista, {
+                                  data: createForm.periodo.periodo_inicio || new Date().toISOString().substring(0, 10),
+                                  quantidade: 1,
+                                  tipo_falta: 'comum',
+                                  status_reposicao: 'nao_precisa',
+                                  observacoes: ''
+                                }])}
+                                className="w-full py-2 bg-background border border-dashed border-primary/50 text-primary rounded-xl text-xs font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
+                              >
+                                <Plus className="w-3 h-3" /> Adicionar registro de falta
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* EDIT mode — legacy form (not migrated in 1C.3) */}
+                    <section className="space-y-6">
+                      <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
+                        <LayoutTemplate className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Informações Básicas</h3>
                       </div>
-                      
-                      {retroFaltasOption === 'quantidade' && (
+
+                      <div>
+                        <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Nome da matéria <span className="text-error">*</span></label>
+                        <input
+                          autoFocus
+                          type="text"
+                          value={nome}
+                          onChange={(e) => {
+                            setNome(e.target.value);
+                            if (nomeError) setNomeError('');
+                          }}
+                          className={`w-full bg-surface-container-lowest border ${nomeError ? 'border-error' : 'border-outline'} rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all`}
+                          placeholder="Ex.: Direito Constitucional"
+                        />
+                        {nomeError && <p className="text-xs text-error mt-2 flex items-center gap-1"><X className="w-3 h-3"/> {nomeError}</p>}
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">Descrição (Opcional)</label>
+                          <span className="text-[10px] text-on-surface-variant">{descricao.length}/120</span>
+                        </div>
+                        <textarea
+                          value={descricao}
+                          onChange={(e) => setDescricao(e.target.value.substring(0, 120))}
+                          className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
+                          placeholder="Breve descrição da matéria..."
+                          rows={2}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Professor / Docente</label>
+                        <input
+                          type="text"
+                          value={professor}
+                          onChange={(e) => setProfessor(e.target.value)}
+                          className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                          placeholder="Nome do professor"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Situação Acadêmica</label>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { id: 'em_andamento', label: 'Em andamento' },
+                            { id: 'concluida', label: 'Concluída' },
+                            { id: 'aprovada', label: 'Aprovada' },
+                            { id: 'reprovada', label: 'Reprovada' },
+                            { id: 'trancada', label: 'Trancada' },
+                          ].map(s => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => setStatus(s.id)}
+                              className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full border transition-all ${status === s.id ? (s.id === 'aprovada' ? 'bg-success/20 border-success text-success' : s.id === 'reprovada' ? 'bg-error/20 border-error text-error' : s.id === 'concluida' ? 'bg-tertiary/20 border-tertiary text-tertiary' : s.id === 'trancada' ? 'bg-on-surface-variant/20 border-outline text-on-surface-variant' : 'bg-primary/20 border-primary text-primary') : 'bg-surface-container-lowest border-outline text-on-surface-variant hover:bg-surface-container-highest'}`}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="space-y-6">
+                      <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
+                        <CalendarIcon className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Período Letivo e Faltas (Opcional)</h3>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Quantidade de faltas cadastradas</label>
-                          <input 
-                            type="number" 
-                            min="1"
-                            value={retroFaltasQuant}
-                            onChange={(e) => setRetroFaltasQuant(e.target.value ? Number(e.target.value) : '')}
-                            className="w-full sm:w-1/2 bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
-                            placeholder="Ex.: 3"
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Início do Período</label>
+                          <DateInputMasked
+                            value={periodoInicio}
+                            onValueChange={setPeriodoInicio}
+                            className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
                           />
                         </div>
-                      )}
-
-                      {retroFaltasOption === 'detalhado' && (
-                        <div className="space-y-4">
-                           {retroFaltasLista.map((falta, idx) => (
-                             <div key={idx} className="flex flex-col gap-3 p-3 border border-outline rounded-xl bg-surface-container-lowest">
-                               <div className="flex gap-2">
-                                  <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Data</label>
-                                    <input type="date" value={falta.data} onChange={e => {
-                                      const n = [...retroFaltasLista]; n[idx].data = e.target.value; setRetroFaltasLista(n);
-                                    }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]" />
-                                  </div>
-                                  <div className="w-20">
-                                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Qtd</label>
-                                    <input type="number" min="1" value={falta.quantidade} onChange={e => {
-                                      const n = [...retroFaltasLista]; n[idx].quantidade = Number(e.target.value); setRetroFaltasLista(n);
-                                    }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]" />
-                                  </div>
-                               </div>
-                               <div className="flex gap-2">
-                                  <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Tipo de Falta</label>
-                                    <select value={falta.tipo_falta} onChange={e => {
-                                      const n = [...retroFaltasLista]; n[idx].tipo_falta = e.target.value; setRetroFaltasLista(n);
-                                    }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]">
-                                       <option value="comum">Comum</option>
-                                       <option value="com_atestado">Com Atestado / Justificada</option>
-                                    </select>
-                                  </div>
-                                  <div className="flex-1">
-                                    <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Status Reposição</label>
-                                    <select value={falta.status_reposicao} onChange={e => {
-                                      const n = [...retroFaltasLista]; n[idx].status_reposicao = e.target.value; setRetroFaltasLista(n);
-                                    }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]">
-                                       <option value="nao_precisa">Não repor</option>
-                                       <option value="pendente">Repor conteúdo</option>
-                                       <option value="recuperado">Já reposto</option>
-                                    </select>
-                                  </div>
-                               </div>
-                               <div>
-                                  <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Observações / Conteúdo Perdido</label>
-                                  <input type="text" value={falta.observacoes} onChange={e => {
-                                    const n = [...retroFaltasLista]; n[idx].observacoes = e.target.value; setRetroFaltasLista(n);
-                                  }} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-[10px] font-[inherit]" placeholder="Ex.: Atraso por trânsito | Matéria capítulo 3" />
-                               </div>
-                               <div className="flex justify-end mt-1">
-                                  <button type="button" onClick={() => setRetroFaltasLista(retroFaltasLista.filter((_, i) => i !== idx))} className="text-[10px] text-error font-medium flex items-center gap-1 hover:underline">
-                                    <Trash2 className="w-3 h-3" /> Remover
-                                  </button>
-                               </div>
-                             </div>
-                           ))}
-                           <button type="button" onClick={() => setRetroFaltasLista([...retroFaltasLista, { data: periodoInicio || new Date().toISOString().substring(0,10), quantidade: 1, tipo_falta: 'comum', status_reposicao: 'nao_precisa', observacoes: '' }])} className="w-full py-2 bg-background border border-dashed border-primary/50 text-primary rounded-xl text-xs font-bold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2">
-                             <Plus className="w-3 h-3" /> Adicionar registro de falta
-                           </button>
+                        <div>
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Fim do Período</label>
+                          <DateInputMasked
+                            value={periodoFim}
+                            onValueChange={setPeriodoFim}
+                            className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
+                          />
                         </div>
-                      )}
-                    </div>
-                  )}
-                </section>
+                      </div>
 
-                {/* BLOCO 3: CONFIGURAÇÃO DA MATÉRIA */}
-                <section className="space-y-6">
-                  <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
-                    <Target className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Configuração da Matéria</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Prioridade</label>
-                      <div className="flex flex-wrap gap-2">
-                        {['Baixa', 'Média', 'Alta'].map(p => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => setPrioridade(p)}
-                            className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${prioridade === p ? (p === 'Alta' ? 'bg-error/20 border-error text-error shadow-[0_0_15px_rgba(239,68,68,0.2)]' : p === 'Média' ? 'bg-tertiary/20 border-tertiary text-tertiary shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-success/20 border-success text-success shadow-[0_0_15px_rgba(16,185,129,0.2)]') : 'bg-surface-container-lowest border-outline text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-highest'}`}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Tipo de Período</label>
+                          <select
+                            value={tipoPeriodo}
+                            onChange={(e) => setTipoPeriodo(e.target.value)}
+                            className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
                           >
-                            {p}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                       <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Peso / Importância</label>
-                       <div className="flex flex-wrap gap-2">
-                        {['Baixo', 'Médio', 'Alto'].map(p => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => setPesoImportancia(p)}
-                            className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${pesoImportancia === p ? 'bg-secondary/20 border-secondary text-on-surface shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-surface-container-lowest border-outline text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-highest'}`}
-                          >
-                            {p}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Cor da Matéria</label>
-                      <div className="bg-surface-container-lowest border border-outline rounded-xl p-3">
-                        <ColorTokenPicker 
-                          value={cor} 
-                          onChange={setCor} 
-                          allowEmpty={false}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Meta semanal (horas)</label>
-                      <div className="relative md:w-1/2">
-                        <input 
-                          type="number" 
-                          min="0"
-                          step="0.5"
-                          value={metaSemanalHoras}
-                          onChange={(e) => setMetaSemanalHoras(e.target.value ? Number(e.target.value) : '')}
-                          className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all pl-11"
-                          placeholder="Ex.: 4"
-                        />
-                        <Clock className="w-4 h-4 text-on-surface-variant absolute left-4 top-1/2 -translate-y-1/2" />
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* BLOCO GRADE HORÁRIA */}
-                {!editingMateria && (
-                  <section className="space-y-6">
-                    <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
-                      <CalendarIcon className="w-4 h-4 text-primary" />
-                      <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Grade Horária (Opcional)</h3>
-                    </div>
-
-                    <div className="p-4 bg-surface-container border border-outline/20 rounded-2xl flex flex-col gap-4">
-                       <label className="flex items-center justify-between cursor-pointer">
-                          <span className="text-sm font-bold text-on-surface">Criar horário na grade agora?</span>
-                          <input type="checkbox" checked={criarGrade} onChange={e => setCriarGrade(e.target.checked)} className="w-4 h-4 text-primary rounded border-outline/50" />
-                       </label>
-
-                       {criarGrade && (
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-outline/10 animate-in fade-in">
-                            <div className="md:col-span-2">
-                               <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Dias da semana</label>
-                               <div className="flex gap-2">
-                                  {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((letra, idx) => (
-                                     <button key={idx} type="button" onClick={() => setGradeDias(prev => prev.includes(idx) ? prev.filter(d => d !== idx) : [...prev, idx])}
-                                       className={`w-8 h-8 rounded-full text-xs font-bold transition-all ${gradeDias.includes(idx) ? 'bg-primary text-on-primary' : 'bg-surface hover:bg-surface-variant text-on-surface-variant'}`}
-                                     >{letra}</button>
-                                  ))}
-                               </div>
-                            </div>
-                            <div>
-                               <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Início</label>
-                               <input type="time" value={gradeHoraInicio} onChange={e => setGradeHoraInicio(e.target.value)} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-sm" />
-                            </div>
-                            <div>
-                               <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Fim</label>
-                               <input type="time" value={gradeHoraFim} onChange={e => setGradeHoraFim(e.target.value)} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-sm" />
-                            </div>
-                            <div>
-                               <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Local/Sala</label>
-                               <input type="text" value={gradeLocal} onChange={e => setGradeLocal(e.target.value)} placeholder="Opcional" className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-sm" />
-                            </div>
-                            <div>
-                               <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex items-center justify-between">
-                                  Repetição
-                                  <input type="checkbox" checked={gradeRecorrente} onChange={e => setGradeRecorrente(e.target.checked)} className="w-3 h-3 text-primary rounded border-outline/50" />
-                               </label>
-                               {!gradeRecorrente ? (
-                                  <input type="date" value={gradeDataEspecifica} onChange={e => setGradeDataEspecifica(e.target.value)} className="w-full bg-background border border-outline/20 rounded-xl px-3 py-2 text-sm" />
-                               ) : (
-                                  <div className="w-full bg-surface-container py-2 px-3 rounded-xl text-xs text-on-surface-variant border border-transparent">Semanalmente</div>
-                               )}
-                            </div>
-                            <div className="md:col-span-2">
-                               <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">Cor específica do bloco (opcional)</label>
-                               <div className="bg-background border border-outline/20 rounded-xl p-3">
-                                  <ColorTokenPicker 
-                                    value={gradeCor} 
-                                    onChange={setGradeCor} 
-                                    allowEmpty={true}
-                                    emptyLabel="Herdar da matéria"
-                                  />
-                               </div>
-                            </div>
-                         </div>
-                       )}
-                    </div>
-                  </section>
-                )}
-
-                {/* BLOCO 4: AUTOMAÇÃO E INTEGRAÇÃO */}
-                <section className="space-y-6">
-                  <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
-                    <Zap className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Automação e Integração</h3>
-                  </div>
-
-                  <div className="space-y-4">
-                     <div className="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border border-outline">
-                        <div className="pr-4">
-                          <p className="text-sm font-bold text-on-surface">Ativar revisões automáticas</p>
-                          <p className="text-xs text-on-surface-variant mt-1">Lógica de repetição espaçada (1, 3, 7, 15, 30 dias)</p>
+                            <option value="bimestre">Bimestre</option>
+                            <option value="trimestre">Trimestre</option>
+                            <option value="semestre">Semestre</option>
+                            <option value="modulo">Módulo</option>
+                            <option value="ano">Ano</option>
+                            <option value="outro">Outro (Livre)</option>
+                          </select>
                         </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={revisaoAutomaticaAtiva}
-                          onClick={() => setRevisaoAutomaticaAtiva(!revisaoAutomaticaAtiva)}
-                          className={`w-11 h-6 shrink-0 flex items-center rounded-full p-1 transition-colors ${revisaoAutomaticaAtiva ? 'bg-primary' : 'bg-surface-variant'}`}
-                        >
-                          <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${revisaoAutomaticaAtiva ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                     </div>
-                     
-                     <div className="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border border-outline">
-                        <div className="pr-4">
-                          <p className="text-sm font-bold text-on-surface">Exibir no Calendário</p>
-                          <p className="text-xs text-on-surface-variant mt-1">Vincular aulas e eventos desta matéria</p>
+                        <div>
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Número do Período</label>
+                          <input
+                            type="number"
+                            value={numeroPeriodo}
+                            onChange={(e) => setNumeroPeriodo(e.target.value ? Number(e.target.value) : '')}
+                            className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-[inherit]"
+                            placeholder="Ex.: 2"
+                            min="1"
+                            max="20"
+                          />
                         </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={exibirNoCalendario}
-                          onClick={() => setExibirNoCalendario(!exibirNoCalendario)}
-                          className={`w-11 h-6 shrink-0 flex items-center rounded-full p-1 transition-colors ${exibirNoCalendario ? 'bg-primary' : 'bg-surface-variant'}`}
-                        >
-                          <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${exibirNoCalendario ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                     </div>
-                     
-                     {!editingMateria && (
-                       <div className="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border border-outline">
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Limite de Faltas (%)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={limiteFaltasPercentual}
+                            onChange={(e) => setLimiteFaltasPercentual(e.target.value ? Number(e.target.value) : '')}
+                            className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            placeholder="Ex.: 25"
+                          />
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="space-y-6">
+                      <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
+                        <Target className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Configuração da Matéria</h3>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Prioridade</label>
+                          <div className="flex flex-wrap gap-2">
+                            {['Baixa', 'Média', 'Alta'].map(p => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => setPrioridade(p)}
+                                className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${prioridade === p ? (p === 'Alta' ? 'bg-error/20 border-error text-error shadow-[0_0_15px_rgba(239,68,68,0.2)]' : p === 'Média' ? 'bg-tertiary/20 border-tertiary text-tertiary shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-success/20 border-success text-success shadow-[0_0_15px_rgba(16,185,129,0.2)]') : 'bg-surface-container-lowest border-outline text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-highest'}`}
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Peso / Importância</label>
+                          <div className="flex flex-wrap gap-2">
+                            {['Baixo', 'Médio', 'Alto'].map(p => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => setPesoImportancia(p)}
+                                className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all ${pesoImportancia === p ? 'bg-secondary/20 border-secondary text-on-surface shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-surface-container-lowest border-outline text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-highest'}`}
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Cor da Matéria</label>
+                          <div className="bg-surface-container-lowest border border-outline rounded-xl p-3">
+                            <ColorTokenPicker
+                              value={cor}
+                              onChange={setCor}
+                              allowEmpty={false}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Meta semanal (horas)</label>
+                          <div className="relative md:w-1/2">
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              value={metaSemanalHoras}
+                              onChange={(e) => setMetaSemanalHoras(e.target.value ? Number(e.target.value) : '')}
+                              className="w-full bg-surface-container-lowest border border-outline rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all pl-11"
+                              placeholder="Ex.: 4"
+                            />
+                            <Clock className="w-4 h-4 text-on-surface-variant absolute left-4 top-1/2 -translate-y-1/2" />
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="space-y-6">
+                      <div className="flex items-center gap-2 mb-4 border-b border-outline/50 pb-2">
+                        <Zap className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-bold text-on-surface uppercase tracking-wider">Automação e Integração</h3>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border border-outline">
                           <div className="pr-4">
-                            <p className="text-sm font-bold text-on-surface">Criar estrutura inicial</p>
-                            <p className="text-xs text-on-surface-variant mt-1">Preparar coleções de aulas, tópicos e notas</p>
+                            <p className="text-sm font-bold text-on-surface">Ativar revisões automáticas</p>
+                            <p className="text-xs text-on-surface-variant mt-1">Lógica de repetição espaçada (1, 3, 7, 15, 30 dias)</p>
                           </div>
                           <button
                             type="button"
                             role="switch"
-                            aria-checked={criarEstruturaInicial}
-                            onClick={() => setCriarEstruturaInicial(!criarEstruturaInicial)}
-                            className={`w-11 h-6 shrink-0 flex items-center rounded-full p-1 transition-colors ${criarEstruturaInicial ? 'bg-primary' : 'bg-surface-variant'}`}
+                            aria-checked={revisaoAutomaticaAtiva}
+                            onClick={() => setRevisaoAutomaticaAtiva(!revisaoAutomaticaAtiva)}
+                            className={`w-11 h-6 shrink-0 flex items-center rounded-full p-1 transition-colors ${revisaoAutomaticaAtiva ? 'bg-primary' : 'bg-surface-variant'}`}
                           >
-                             <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${criarEstruturaInicial ? 'translate-x-5' : 'translate-x-0'}`} />
+                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${revisaoAutomaticaAtiva ? 'translate-x-5' : 'translate-x-0'}`} />
                           </button>
-                       </div>
-                     )}
-
-                     <div className="flex items-center justify-between p-4 bg-primary/5 hover:bg-primary/10 rounded-xl border border-primary/20 transition-colors">
-                        <div className="pr-4">
-                          <p className="text-sm font-bold text-primary flex items-center gap-1"><Zap className="w-3 h-3"/> IA Tools</p>
-                          <p className="text-xs text-on-surface-variant mt-1">Permitir geração de resumos e questões com IA</p>
                         </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={iaHabilitada}
-                          onClick={() => setIaHabilitada(!iaHabilitada)}
-                          className={`w-11 h-6 shrink-0 flex items-center rounded-full p-1 transition-colors ${iaHabilitada ? 'bg-primary' : 'bg-primary/20 border-primary/30 border'}`}
-                        >
-                          <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${iaHabilitada ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                     </div>
-                  </div>
-                </section>
-                
+
+                        <div className="flex items-center justify-between p-4 bg-surface-container-lowest rounded-xl border border-outline">
+                          <div className="pr-4">
+                            <p className="text-sm font-bold text-on-surface">Exibir no Calendário</p>
+                            <p className="text-xs text-on-surface-variant mt-1">Vincular aulas e eventos desta matéria</p>
+                          </div>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={exibirNoCalendario}
+                            onClick={() => setExibirNoCalendario(!exibirNoCalendario)}
+                            className={`w-11 h-6 shrink-0 flex items-center rounded-full p-1 transition-colors ${exibirNoCalendario ? 'bg-primary' : 'bg-surface-variant'}`}
+                          >
+                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${exibirNoCalendario ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-primary/5 hover:bg-primary/10 rounded-xl border border-primary/20 transition-colors">
+                          <div className="pr-4">
+                            <p className="text-sm font-bold text-primary flex items-center gap-1"><Zap className="w-3 h-3"/> IA Tools</p>
+                            <p className="text-xs text-on-surface-variant mt-1">Permitir geração de resumos e questões com IA</p>
+                          </div>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={iaHabilitada}
+                            onClick={() => setIaHabilitada(!iaHabilitada)}
+                            className={`w-11 h-6 shrink-0 flex items-center rounded-full p-1 transition-colors ${iaHabilitada ? 'bg-primary' : 'bg-primary/20 border-primary/30 border'}`}
+                          >
+                            <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${iaHabilitada ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+                  </>
+                )}
               </div>
-              
+
               {/* RIGHT PREVIEW */}
               <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-outline bg-surface-container-lowest/30 p-6 lg:p-8 flex flex-col gap-4">
                 <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex items-center gap-2"><MonitorPlay className="w-4 h-4" /> Preview da Matéria</h3>
@@ -1022,38 +989,38 @@ export function Materias() {
                 <div className="glass-panel rounded-2xl p-6 transition-all border border-outline/30 shadow-xl relative overflow-hidden group">
                   
                   <div className="flex justify-between items-start mb-4 relative z-10">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: getMateriaColor(cor).bg }}>
-                      <BookOpen className="w-5 h-5" style={{ color: getMateriaColor(cor).color || getMateriaColor(cor).corDefault }} />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: getMateriaColor(previewCor).bg }}>
+                      <BookOpen className="w-5 h-5" style={{ color: getMateriaColor(previewCor).color || getMateriaColor(previewCor).corDefault }} />
                     </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-surface-container-highest ${prioridade === 'Alta' ? 'text-error' : 'text-on-surface-variant'}`}>
-                      Prioridade {prioridade}
+                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-surface-container-highest ${previewPrioridade === 'Alta' ? 'text-error' : 'text-on-surface-variant'}`}>
+                      Prioridade {previewPrioridade}
                     </span>
                   </div>
                   
-                  <h3 className="text-lg font-bold text-on-surface mb-1 relative z-10">{nome.trim() || 'Nova matéria'}</h3>
+                  <h3 className="text-lg font-bold text-on-surface mb-1 relative z-10">{previewNome.trim() || 'Nova matéria'}</h3>
                   <div className="mb-4 relative z-10">
                     <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-current opacity-80
-                      ${status === 'aprovada' ? 'text-success' : 
-                        status === 'reprovada' ? 'text-error' : 
-                        status === 'concluida' ? 'text-tertiary' : 
-                        status === 'trancada' ? 'text-on-surface-variant' :
+                      ${previewStatus === 'aprovada' ? 'text-success' : 
+                        previewStatus === 'reprovada' ? 'text-error' : 
+                        previewStatus === 'concluida' ? 'text-tertiary' : 
+                        previewStatus === 'trancada' ? 'text-on-surface-variant' :
                         'text-primary'}
                     `}>
-                      {status === 'em_andamento' ? 'Em andamento' :
-                       status === 'concluida' ? 'Concluída' :
-                       status === 'aprovada' ? 'Aprovada' :
-                       status === 'reprovada' ? 'Reprovada' :
-                       status === 'trancada' ? 'Trancada' : 'Em andamento'}
+                      {previewStatus === 'em_andamento' ? 'Em andamento' :
+                       previewStatus === 'concluida' ? 'Concluída' :
+                       previewStatus === 'aprovada' ? 'Aprovada' :
+                       previewStatus === 'reprovada' ? 'Reprovada' :
+                       previewStatus === 'trancada' ? 'Trancada' : 'Em andamento'}
                     </span>
                   </div>
                   
-                  {tipoPeriodo && (
+                  {previewTipoPeriodo && (
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 relative z-10">
-                       {formatPeriodoLabel(tipoPeriodo, numeroPeriodo, periodoInicio, periodoFim) || 'Período não definido'}
+                       {formatPeriodoLabel(previewTipoPeriodo, previewNumeroPeriodo, previewPeriodoInicio, previewPeriodoFim) || 'Período não definido'}
                     </p>
                   )}
                   
-                  <p className="text-xs text-on-surface-variant mb-6 line-clamp-2 min-h-[32px] relative z-10">{descricao || 'Adicione uma descrição para visualizar aqui.'}</p>
+                  <p className="text-xs text-on-surface-variant mb-6 line-clamp-2 min-h-[32px] relative z-10">{previewDescricao || 'Adicione uma descrição para visualizar aqui.'}</p>
                   
                   <div className="space-y-4 relative z-10">
                     <div>
@@ -1062,14 +1029,14 @@ export function Materias() {
                         <span className="font-bold">0%</span>
                       </div>
                       <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
-                        <div className="h-full" style={{ width: '0%', backgroundColor: getMateriaColor(cor).color || getMateriaColor(cor).corDefault }}></div>
+                        <div className="h-full" style={{ width: '0%', backgroundColor: getMateriaColor(previewCor).color || getMateriaColor(previewCor).corDefault }}></div>
                       </div>
                     </div>
                     
                     <div className="flex items-center justify-between pt-4 border-t border-outline">
                       <div className="flex items-center gap-2 text-[10px] text-on-surface-variant">
                         <Clock className="w-3 h-3" />
-                        <span>Meta: {metaSemanalHoras ? <strong className="text-on-surface">{metaSemanalHoras}h/sem</strong> : 'Não definida'}</span>
+                        <span>Meta: {previewMeta ? <strong className="text-on-surface">{previewMeta}h/sem</strong> : 'Não definida'}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-2">
@@ -1084,13 +1051,13 @@ export function Materias() {
                   <div className="mt-6 pt-4 border-t border-outline/30 relative z-10 flex flex-col gap-2">
                      <div className="flex justify-between items-center">
                         <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Prioridade Inteligente</span>
-                        <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: prioridade === 'Alta' ? 'var(--color-error)' : prioridade === 'Média' ? 'var(--color-tertiary)' : 'var(--color-success)' }} />
+                        <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: previewPrioridade === 'Alta' ? 'var(--color-error)' : prioridade === 'Média' ? 'var(--color-tertiary)' : 'var(--color-success)' }} />
                      </div>
                      <p className="text-[10px] leading-relaxed text-on-surface-variant">
-                       {prioridade === 'Alta' && (pesoImportancia === 'Alto' || pesoImportancia === 'Médio') ? (
-                         <>Cálculo baseado em: <strong className="text-error">Alta Prioridade Manual</strong> e peso <strong>{pesoImportancia}</strong>. Foco imediato necessário para metas não atingidas.</>
+                       {previewPrioridade === 'Alta' && (pesoImportancia === 'Alto' || pesoImportancia === 'Médio') ? (
+                         <>Cálculo baseado em: <strong className="text-error">Alta Prioridade Manual</strong> e peso <strong>{previewPeso}</strong>. Foco imediato necessário para metas não atingidas.</>
                        ) : prioridade === 'Média' ? (
-                         <>Cálculo baseado em: <strong className="text-tertiary">Prioridade Média</strong> e peso <strong>{pesoImportancia}</strong>. Manter frequência de estudos regular.</>
+                         <>Cálculo baseado em: <strong className="text-tertiary">Prioridade Média</strong> e peso <strong>{previewPeso}</strong>. Manter frequência de estudos regular.</>
                        ) : (
                          <>Cálculo baseado em: <strong className="text-success">Prioridade Baixa</strong>. Apenas manutenção recomendada.</>
                        )}
@@ -1099,7 +1066,7 @@ export function Materias() {
                   </div>
 
                   {/* Decorative background glow based on selected color */}
-                  <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none`} style={{ backgroundColor: getMateriaColor(cor).bg }} />
+                  <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none`} style={{ backgroundColor: getMateriaColor(previewCor).bg }} />
                 </div>
               </div>
               
@@ -1117,7 +1084,7 @@ export function Materias() {
               <button 
                 type="button" 
                 onClick={handleSave}
-                disabled={loading || !nome.trim()}
+                disabled={loading || !canSubmit}
                 className="px-8 py-2.5 bg-primary text-on-primary text-sm font-bold rounded-full hover:bg-primary-fixed hover:-translate-y-0.5 active:translate-y-0 shadow-lg shadow-primary/25 transition-all disabled:opacity-50 disabled:hover:translate-y-0 disabled:shadow-none"
               >
                 {loading ? 'Salvando...' : (editingMateria ? 'Salvar Matéria' : 'Criar Matéria')}

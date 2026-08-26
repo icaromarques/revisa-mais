@@ -13,7 +13,7 @@ interface MateriaComGradeFormProps {
 
 /**
  * Formulário composto Matéria + Período + Grade.
- * Infraestrutura para migração futura (1C.3/1C.4) — ainda não montado nas páginas de produção.
+ * Usado no modo CRIAÇÃO de Materias (1C.3). Edição permanece no fluxo legado.
  */
 export function MateriaComGradeForm({
   value,
@@ -25,7 +25,7 @@ export function MateriaComGradeForm({
   const periodRequired = value.grade.length > 0;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <MateriaFormFields
         value={value.materia}
         onChange={(materia) => onChange({ ...value, materia })}

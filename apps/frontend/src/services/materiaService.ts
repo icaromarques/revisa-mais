@@ -1,11 +1,15 @@
-import { apiClient } from '@/lib/api'; // Ajustado para apontar para a instância do axios configurada
+import { apiClient } from '@/lib/api';
+import type {
+  MateriaComGradeApiPayload,
+  MateriaComGradeCreateResponse
+} from '@/types/materiaComGradeForm';
 
 // Como o backend agora faz o CASCADE do banco de dados relacional (PostgreSQL),
 // não precisamos mais calcular ou enviar em lotes as deleções.
 // O banco de dados fará ON DELETE CASCADE automaticamente na Matéria.
 
 export const materiaService = {
-  checkDependencies: async (materiaId: string, userId: string) => {
+  checkDependencies: async (materiaId: string, _userId: string) => {
     try {
       // Por enquanto, podemos retornar counts genéricos ou bater em uma rota de count no backend
       // Para não quebrar o frontend atual que espera esses valores:
@@ -17,8 +21,19 @@ export const materiaService = {
     }
   },
 
-  deleteMateriaCascade: async (materiaId: string, userId: string) => {
+  deleteMateriaCascade: async (materiaId: string, _userId: string) => {
     // Agora uma simples chamada HTTP resolve 100% da integridade via Banco de Dados
     await apiClient.delete(`/materias/${materiaId}`);
+  },
+
+  /** Cria Matéria + 0..N GradeFaculdade atomicamente via POST /materias/com-grade. */
+  createMateriaWithGrade: async (
+    payload: MateriaComGradeApiPayload
+  ): Promise<MateriaComGradeCreateResponse> => {
+    const { data } = await apiClient.post<MateriaComGradeCreateResponse>(
+      '/materias/com-grade',
+      payload
+    );
+    return data;
   }
 };

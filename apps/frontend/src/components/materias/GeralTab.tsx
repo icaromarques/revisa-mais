@@ -588,65 +588,74 @@ export function GeralTab({
           <span className="text-[10px] font-black uppercase tracking-widest text-outline mb-2 text-center">Faltas</span>
           
           {(resumoEstrategico.totalClassesExpected > 0 && materia.limite_faltas_percentual) || resumoEstrategico.limiteFaltas > 0 ? (
-            <div className="flex flex-col items-center gap-1.5 w-full">
-               <span className={`text-xl font-black leading-none ${resumoEstrategico.riskStatus === 'critical' ? 'text-error' : resumoEstrategico.riskStatus === 'warning' ? 'text-warning' : 'text-on-surface'}`}>
+            <div className="flex flex-col items-stretch gap-2 w-full text-center">
+              <div>
+                <span className={`text-xl font-black leading-none ${resumoEstrategico.riskStatus === 'critical' ? 'text-error' : resumoEstrategico.riskStatus === 'warning' ? 'text-warning' : 'text-on-surface'}`}>
                   {resumoEstrategico.faltasCount}
                   {resumoEstrategico.totalClassesExpected > 0 ? (
                     <span className="text-sm font-bold text-on-surface-variant"> / {resumoEstrategico.totalClassesExpected} aulas</span>
                   ) : (
                     <span className="text-sm font-bold text-on-surface-variant"> de {resumoEstrategico.limiteFaltas} usadas</span>
                   )}
-               </span>
-               {resumoEstrategico.percentualFaltasReal != null && (
-                 <span className="text-[10px] font-bold text-on-surface-variant">
-                   {resumoEstrategico.percentualFaltasReal}% de faltas (limite {materia.limite_faltas_percentual}%)
-                 </span>
-               )}
-               <span className="text-[10px] font-bold text-on-surface">
-                  {resumoEstrategico.reprovadoPorLimite
-                    ? 'Reprovado por limite de faltas'
-                    : formatMargemFaltasText({
-                        situacao: faltasResumo?.situacao ?? 'seguro',
-                        reprovado_por_limite: resumoEstrategico.reprovadoPorLimite,
-                        faltas_ainda_permitidas_sem_reprovar: resumoEstrategico.faltasRestantes,
-                        faltas_contabilizadas: resumoEstrategico.faltasCount,
-                        percentual_faltas: resumoEstrategico.percentualFaltasReal,
-                        limite_percentual: materia.limite_faltas_percentual ?? null,
-                        percentual_do_limite_consumido: resumoEstrategico.percentualLimiteConsumido,
-                        total_aulas_previstas: resumoEstrategico.totalClassesExpected,
-                        minimo_faltas_para_reprovar: null,
-                        maximo_faltas_sem_reprovar: null
-                      })}
-               </span>
-               
-               <div className="w-full flex flex-col gap-1 mt-1">
-                 <div className="flex justify-between items-center text-[9px] font-bold">
-                    <span className="text-on-surface-variant font-mono">
-                      {Math.round(resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0)}% do limite consumido
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-0.5">
+                {resumoEstrategico.percentualFaltasReal != null && (
+                  <span className="text-[10px] font-bold text-on-surface-variant leading-tight">
+                    {resumoEstrategico.percentualFaltasReal}% de faltas
+                  </span>
+                )}
+                {materia.limite_faltas_percentual != null && (
+                  <span className="text-[10px] font-bold text-on-surface leading-tight">
+                    Limite: {materia.limite_faltas_percentual}%
+                  </span>
+                )}
+              </div>
+
+              <div className="w-full flex flex-col gap-1 mt-0.5">
+                <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-1000 ${
+                      resumoEstrategico.reprovadoPorLimite ? 'bg-error shadow-[0_0_8px_rgba(255,0,0,0.5)]' :
+                      (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) <= 50 ? 'bg-success' :
+                      (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) < 80 ? 'bg-warning' :
+                      'bg-error shadow-[0_0_8px_rgba(255,0,0,0.5)]'
+                    }`}
+                    style={{ width: `${Math.min(resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0, 100)}%` }}
+                  />
+                </div>
+                <span className="text-[9px] font-bold text-on-surface-variant font-mono leading-tight">
+                  {Math.round(resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0)}% do limite
+                </span>
+              </div>
+
+              {resumoEstrategico.reprovadoPorLimite ? (
+                <span className="text-[9px] font-black uppercase tracking-wider text-error leading-tight">
+                  Limite atingido
+                </span>
+              ) : resumoEstrategico.faltasCount === 0 ? (
+                <span className="text-[9px] font-bold text-on-surface-variant leading-tight">
+                  Nenhuma falta
+                </span>
+              ) : (
+                <div className="flex flex-col gap-0.5 leading-tight">
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${
+                    resumoEstrategico.riskStatus === 'critical' ? 'text-error' :
+                    resumoEstrategico.riskStatus === 'warning' ? 'text-warning' :
+                    'text-success'
+                  }`}>
+                    {resumoEstrategico.riskStatus === 'critical' ? 'Risco alto' :
+                     resumoEstrategico.riskStatus === 'warning' ? 'Atenção' :
+                     'Dentro do limite'}
+                  </span>
+                  {resumoEstrategico.faltasRestantes != null && (
+                    <span className="text-[9px] font-bold text-on-surface-variant">
+                      {resumoEstrategico.faltasRestantes} {resumoEstrategico.faltasRestantes === 1 ? 'falta de margem' : 'faltas de margem'}
                     </span>
-                    <span className={
-                       resumoEstrategico.reprovadoPorLimite ? "text-error uppercase" :
-                       resumoEstrategico.faltasCount === 0 ? "text-on-surface-variant" :
-                       (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) <= 50 ? "text-success" :
-                       (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) < 80 ? "text-warning" :
-                       "text-error"
-                    }>
-                       {resumoEstrategico.reprovadoPorLimite ? "Limite atingido" :
-                        resumoEstrategico.faltasCount === 0 ? "Nenhuma falta registrada" :
-                        (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) <= 50 ? "Dentro do limite" :
-                        (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) < 80 ? "Atenção: acompanhe suas faltas" :
-                        "Risco alto de atingir o limite"}
-                    </span>
-                 </div>
-                 <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-1000 ${
-                       resumoEstrategico.reprovadoPorLimite ? "bg-error shadow-[0_0_8px_rgba(255,0,0,0.5)]" :
-                       (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) <= 50 ? "bg-success" :
-                       (resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0) < 80 ? "bg-warning" :
-                       "bg-error shadow-[0_0_8px_rgba(255,0,0,0.5)]"
-                    }`} style={{ width: `${Math.min(resumoEstrategico.percentualLimiteConsumido ?? resumoEstrategico.faltasUsadasPercentual ?? 0, 100)}%` }} />
-                 </div>
-               </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1">
@@ -658,11 +667,10 @@ export function GeralTab({
             </div>
           )}
           
-          {/* Status extra conditions */}
           {(resumoEstrategico.reposicaoPendente > 0 || resumoEstrategico.conteudosRecuperados > 0) && (
-            <div className="flex gap-2 justify-center mt-3 pt-3 border-t border-outline/5 w-full">
+            <div className="flex flex-wrap gap-2 justify-center mt-3 pt-3 border-t border-outline/5 w-full">
               {resumoEstrategico.reposicaoPendente > 0 && (
-                 <span className="text-[9px] font-black text-warning animate-pulse">{resumoEstrategico.reposicaoPendente} a repor</span>
+                 <span className="text-[9px] font-black text-warning">{resumoEstrategico.reposicaoPendente} a repor</span>
               )}
               {resumoEstrategico.conteudosRecuperados > 0 && (
                  <span className="text-[9px] font-bold text-success">{resumoEstrategico.conteudosRecuperados} recuperadas</span>

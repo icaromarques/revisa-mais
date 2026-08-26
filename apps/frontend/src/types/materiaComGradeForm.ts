@@ -76,3 +76,30 @@ export interface MateriaComGradeFormValidationResult {
     form?: string[];
   };
 }
+
+/** Resposta de POST /materias/com-grade (matéria em camelCase Prisma; grade em snake_case). */
+export interface MateriaComGradeCreateResponse {
+  materia: {
+    id: string;
+    nome: string;
+    cor: string;
+    professor?: string | null;
+    descricao?: string | null;
+    status?: string | null;
+    prioridade?: string | null;
+    pesoImportancia?: string | null;
+    metaSemanalHoras?: number | null;
+    periodoInicio?: string | Date | null;
+    periodoFim?: string | Date | null;
+    tipoPeriodo?: string | null;
+    numeroPeriodo?: number | null;
+    limiteFaltasPercentual?: number | null;
+    revisaoAutomaticaAtiva?: boolean;
+    exibirNoCalendario?: boolean;
+    iaHabilitada?: boolean;
+    userId?: string;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+  };
+  grade: Array<Record<string, unknown>>;
+}
